@@ -24,6 +24,9 @@ class _MainScreenState extends State<MainScreen> {
     ItemData(id: 'kome', name: '米', category: '素材', imagePath: 'assets/images/kome.png'),
     ItemData(id: 'tamago', name: '卵', category: '素材', imagePath: 'assets/images/tamago.png'),
     ItemData(id: 'sio', name: '塩', category: '素材', imagePath: 'assets/images/sio.png'),
+    // お湯が初期から使えるように、または錬金で生成されるように
+    // 例として、初期アイテムにお湯を追加する場合（通常は錬金で生成されます）
+    // ItemData(id: 'oyu', name: 'お湯', category: '調理', imagePath: 'assets/images/oyu.png'),
   ];
 
   // フッターに配置されたアイテムのリスト (最大4つ)
@@ -102,7 +105,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
             // メインコンテンツ部分 (スクロール可能な画像グリッド)
-            Expanded(
+            Expanded( // 残りのスペースを占有し、内部のGridViewをスクロール可能にする
               child: GridView.builder(
                 padding: const EdgeInsets.all(10.0), // グリッド全体のパディング
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -118,12 +121,12 @@ class _MainScreenState extends State<MainScreen> {
                     onTap: () => _addItemToFooter(item),
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8.0),
+                        border: Border.all(color: Colors.grey.shade300), // オプション：画像の境界線
+                        borderRadius: BorderRadius.circular(8.0), // オプション：角を丸く
                       ),
                       child: Image.asset(
                         item.imagePath, // ItemDataから画像パスを取得
-                        fit: BoxFit.contain,
+                        fit: BoxFit.contain, // 画像の表示方法
                       ),
                     ),
                   );
@@ -251,10 +254,14 @@ class _MainScreenState extends State<MainScreen> {
 
     ItemData? resultItem;
 
-    // --- ここに錬金レシピのロジックを記述 ---
-    // 例: 火 + 水 = お湯
+    // --- 錬金レシピのロジック ---
+    // 例1: 火 + 水 = お湯
     if (placedItemIds.length == 2 && placedItemIds.contains('hi') && placedItemIds.contains('mizu')) {
       resultItem = ItemData(id: 'oyu', name: 'お湯', category: '調理', imagePath: 'assets/images/oyu.png');
+    }
+    // 例2: お湯 + 卵 = ゆで卵
+    else if (placedItemIds.length == 2 && placedItemIds.contains('oyu') && placedItemIds.contains('tamago')) {
+      resultItem = ItemData(id: 'yudetamago', name: 'ゆで卵', category: '料理', imagePath: 'assets/images/yudetamago.png');
     }
     // TODO: 他のレシピもここに追加していく
 
@@ -286,14 +293,17 @@ class _MainScreenState extends State<MainScreen> {
     // 現在は全アイテムを表示していますが、
     // ここで_availableItemsをフィルタリングするロジックを実装できます。
     // 例:
+    // List<ItemData> filteredList;
     // if (category == 'すべて') {
-    //   _availableItems = allInitialItems; // 元の全アイテムリストに戻す
+    //   filteredList = allInitialItems; // 元の全アイテムリストに戻す
     // } else {
-    //   _availableItems = allInitialItems.where((item) => item.category == category).toList();
+    //   filteredList = allInitialItems.where((item) => item.category == category).toList();
     // }
-    // setState(() {});
-    // 今はまだフィルタリング機能を実装していませんが、必要に応じてここに追加できます。
-    // _availableItemsは表示用のリストなので、フィルタリングするには元のリスト（_allGameItemsなど）を
-    // 別途保持し、それを基に_availableItemsを更新する形が良いでしょう。
+    // setState(() {
+    //   _availableItems = filteredList;
+    // });
+    // 現状_availableItemsは画面に表示されているアイテムのみなので、
+    // フィルターするためにはゲーム全体のアイテムリスト（_allItemsなど）を別に保持する必要があります。
+    // ここでは、フィルタリング機能の基礎だけを残します。
   }
 }
