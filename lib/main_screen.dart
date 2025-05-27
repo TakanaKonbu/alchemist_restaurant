@@ -210,7 +210,7 @@ class _MainScreenState extends State<MainScreen> {
               child: GridView.builder(
                 padding: const EdgeInsets.all(10.0),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
+                  crossAxisCount: 4,
                   crossAxisSpacing: 10.0,
                   mainAxisSpacing: 10.0,
                   childAspectRatio: 1.0,
@@ -369,14 +369,12 @@ class _MainScreenState extends State<MainScreen> {
     ItemData? resultItem;
 
     for (var recipe in _recipes) {
-      // 素材名をidに変換
       final recipeIds = recipe.ingredients
           .map((name) => _nameToIdMap[name])
           .where((id) => id != null)
           .cast<String>()
           .toList()
         ..sort();
-      // 素材数と内容が完全に一致する場合のみマッチ
       if (placedItemIds.length == recipeIds.length &&
           placedItemIds.toSet().difference(recipeIds.toSet()).isEmpty) {
         print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
@@ -391,12 +389,10 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     if (resultItem != null) {
-      // 重複チェックをidベースで厳密に行う
       final alreadyExists = _availableItems.any((item) => item.id == resultItem!.id);
       if (!alreadyExists) {
         setState(() {
-          _availableItems.add(resultItem!);
-          _availableItems.sort((a, b) => a.id.compareTo(b.id));
+          _availableItems.add(resultItem!); // 末尾に追加
           _filteredItems = List.from(_availableItems);
         });
         _saveProgress();
@@ -430,14 +426,13 @@ class _MainScreenState extends State<MainScreen> {
     if (unlockableItems.isNotEmpty) {
       setState(() {
         for (var recipe in unlockableItems) {
-          _availableItems.add(ItemData(
+          _availableItems.add(ItemData( // 末尾に追加
             id: recipe.id,
             name: recipe.name,
             category: recipe.category,
             imagePath: recipe.imagePath,
           ));
         }
-        _availableItems.sort((a, b) => a.id.compareTo(b.id));
         _filteredItems = List.from(_availableItems);
       });
       _saveProgress();
@@ -454,7 +449,7 @@ class _MainScreenState extends State<MainScreen> {
       } else {
         _filteredItems = _availableItems.where((item) => item.category == category).toList();
       }
-      _filteredItems.sort((a, b) => a.id.compareTo(b.id));
+      // ソートを削除して解放順を維持
     });
   }
 }
