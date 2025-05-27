@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:alchemist_restaurant/models/item_data.dart';
+import 'package:alchemist_restaurant/menu_drawer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -41,6 +42,7 @@ class _MainScreenState extends State<MainScreen> {
   late List<ItemData> _availableItems;
   late List<ItemData> _filteredItems;
   final List<ItemData?> _footerSlots = List.filled(4, null);
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -130,7 +132,9 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFFFF6E6),
+      drawer: const MenuDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -188,13 +192,18 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
+                    icon: const Icon(Icons.search),
+                    color: accentColor,
+                    onPressed: () {
+                      _scaffoldKey.currentState?.openDrawer();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
                     icon: const Icon(Icons.menu),
                     color: accentColor,
                     onPressed: () {
-                      print('メニューが押されました');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('メニューはまだ実装されていません！')),
-                      );
+                      _scaffoldKey.currentState?.openDrawer();
                     },
                   ),
                 ],
@@ -363,14 +372,12 @@ class _MainScreenState extends State<MainScreen> {
     ItemData? resultItem;
 
     for (var recipe in _recipes) {
-      // 素材名をidに変換
       final recipeIds = recipe.ingredients
           .map((name) => _nameToIdMap[name])
           .where((id) => id != null)
           .cast<String>()
           .toList()
         ..sort();
-      // 素材数と内容が完全に一致する場合のみマッチ（ソート済みで比較）
       if (placedItemIds.length == recipeIds.length && placedItemIds.join(',') == recipeIds.join(',')) {
         print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
         resultItem = ItemData(
