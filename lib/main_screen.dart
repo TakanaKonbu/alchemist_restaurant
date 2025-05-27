@@ -1,5 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:alchemist_restaurant/models/item_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:csv/csv.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:convert';
+
+class Recipe {
+  final String id;
+  final String name;
+  final List<String> ingredients;
+  final String unlockCondition;
+  final String imagePath;
+  final String category;
+
+  Recipe({
+    required this.id,
+    required this.name,
+    required this.ingredients,
+    required this.unlockCondition,
+    required this.imagePath,
+    required this.category,
+  });
+}
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -13,27 +35,96 @@ class _MainScreenState extends State<MainScreen> {
   static const Color accentColor = Color(0xFFFF7B00);
   static const Color emptySlotColor = Colors.grey;
 
-  // 全ての初期アイテム（ゲーム開始時に利用可能なアイテム）
-  final List<ItemData> _allInitialItems = [
-    ItemData(id: 'hi', name: '火', category: '調理', imagePath: 'assets/images/hi.png'),
-    ItemData(id: 'mizu', name: '水', category: '調理', imagePath: 'assets/images/mizu.png'),
-    ItemData(id: 'komugi', name: '小麦', category: '素材', imagePath: 'assets/images/komugi.png'),
-    ItemData(id: 'kome', name: '米', category: '素材', imagePath: 'assets/images/kome.png'),
-    ItemData(id: 'tamago', name: '卵', category: '素材', imagePath: 'assets/images/tamago.png'),
-    ItemData(id: 'sio', name: '塩', category: '素材', imagePath: 'assets/images/sio.png'),
-  ];
-
-  // 現在グリッドに表示されているアイテムのリスト（フィルタリングによって変動する可能性がある）
+  final List<ItemData> _allInitialItems = [];
+  List<Recipe> _recipes = [];
+  Map<String, String> _nameToIdMap = {};
   late List<ItemData> _availableItems;
-
-  // フッターに配置されたアイテムのリスト (最大4つ)
+  late List<ItemData> _filteredItems;
   final List<ItemData?> _footerSlots = List.filled(4, null);
 
   @override
   void initState() {
     super.initState();
-    // アプリ起動時に_availableItemsを初期アイテムで設定
-    _availableItems = List.from(_allInitialItems);
+    _loadRecipes();
+    _loadProgress();
+  }
+
+  Future<void> _loadRecipes() async {
+    try {
+      final csvString = await rootBundle.loadString('assets/recipe.csv');
+      final rows = const CsvToListConverter().convert(csvString, eol: '\n');
+      _recipes = rows.skip(1).map((row) {
+        final ingredients = [row[1], row[2], row[3], row[4]]
+            .where((e) => e != null && e.toString().trim().isNotEmpty)
+            .map((e) => e.toString().trim())
+            .toList();
+        final imageName = row[6]?.toString().trim() ?? 'unknown';
+        final name = row[0]?.toString().trim() ?? '';
+        final recipe = Recipe(
+          id: imageName,
+          name: name,
+          ingredients: ingredients,
+          unlockCondition: row[5]?.toString().trim() ?? '',
+          imagePath: 'assets/images/$imageName.png',
+          category: row[7]?.toString().trim() ?? '',
+        );
+        _nameToIdMap[name] = imageName;
+        if (recipe.unlockCondition == '初期') {
+          _allInitialItems.add(ItemData(
+            id: recipe.id,
+            name: recipe.name,
+            category: recipe.category,
+            imagePath: recipe.imagePath,
+          ));
+        }
+        return recipe;
+      }).where((recipe) => recipe.name.isNotEmpty).toList();
+      print('Name to ID Map: $_nameToIdMap');
+      setState(() {});
+    } catch (e) {
+      print('Error loading recipes: $e');
+    }
+  }
+
+  Future<void> _saveProgress({bool showMessage = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final itemsJson = jsonEncode(_availableItems.map((item) => {
+      'id': item.id,
+      'name': item.name,
+      'category': item.category,
+      'imagePath': item.imagePath,
+    }).toList());
+    await prefs.setString('availableItems', itemsJson);
+    if (showMessage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('保存しました'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    final itemsJson = prefs.getString('availableItems');
+    if (itemsJson != null) {
+      final List<dynamic> itemsList = jsonDecode(itemsJson);
+      setState(() {
+        _availableItems = itemsList.map((item) => ItemData(
+          id: item['id'],
+          name: item['name'],
+          category: item['category'],
+          imagePath: item['imagePath'],
+        )).toList();
+        _filteredItems = List.from(_availableItems);
+      });
+    } else {
+      setState(() {
+        _availableItems = List.from(_allInitialItems);
+        _filteredItems = List.from(_availableItems);
+      });
+    }
   }
 
   @override
@@ -43,13 +134,11 @@ class _MainScreenState extends State<MainScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ヘッダー部分
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // プルダウンメニュー
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -88,7 +177,11 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-                  // 電球マークのアイコンボタン
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    color: accentColor,
+                    onPressed: () => _saveProgress(showMessage: true),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.lightbulb_outline),
                     color: accentColor,
@@ -100,7 +193,6 @@ class _MainScreenState extends State<MainScreen> {
                     },
                   ),
                   const SizedBox(width: 8),
-                  // クエスチョンマークのアイコンボタン
                   IconButton(
                     icon: const Icon(Icons.help_outline),
                     color: accentColor,
@@ -114,7 +206,6 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             ),
-            // メインコンテンツ部分 (スクロール可能な画像グリッド)
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.all(10.0),
@@ -124,9 +215,9 @@ class _MainScreenState extends State<MainScreen> {
                   mainAxisSpacing: 10.0,
                   childAspectRatio: 1.0,
                 ),
-                itemCount: _availableItems.length,
+                itemCount: _filteredItems.length,
                 itemBuilder: (context, index) {
-                  final ItemData item = _availableItems[index];
+                  final ItemData item = _filteredItems[index];
                   return GestureDetector(
                     onTap: () => _addItemToFooter(item),
                     child: Container(
@@ -141,6 +232,8 @@ class _MainScreenState extends State<MainScreen> {
                             child: Image.asset(
                               item.imagePath,
                               fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Image.asset('assets/images/unknown.png'),
                             ),
                           ),
                           Padding(
@@ -164,7 +257,6 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
             ),
-            // フッター部分
             Container(
               color: Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 10.0),
@@ -241,11 +333,10 @@ class _MainScreenState extends State<MainScreen> {
 
   void _addItemToFooter(ItemData item) {
     setState(() {
-      // 同じアイテムを重複して置けるように、contains() のチェックを削除
       for (int i = 0; i < _footerSlots.length; i++) {
         if (_footerSlots[i] == null) {
           _footerSlots[i] = item;
-          break; // 最初に見つかった空のスロットに入れる
+          break;
         }
       }
     });
@@ -273,129 +364,46 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
-    // フッタースロットのアイテムIDのリストを作成
-    // placedItemIds はそのまま使用
-    final List<String> placedItemIds =
-    _footerSlots.whereType<ItemData>().map((item) => item.id).toList();
-
-    // 錬金レシピの判定のために、ソートされたコピーを作成 (元のリストは変更しない)
-    final List<String> sortedPlacedItemIds = List.from(placedItemIds)..sort();
-
-
+    final placedItems = _footerSlots.whereType<ItemData>().toList();
+    final placedItemIds = placedItems.map((item) => item.id).toList()..sort();
     ItemData? resultItem;
 
-    // --- 錬金レシピのロジック ---
-    // 2個グループ
-    if (placedItemIds.length == 2) {
-      if (sortedPlacedItemIds.contains('hi') && sortedPlacedItemIds.contains('mizu')) {
-        resultItem = ItemData(id: 'oyu', name: 'お湯', category: '調理', imagePath: 'assets/images/oyu.png');
-      } else if (sortedPlacedItemIds.contains('oyu') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'yudetamago', name: 'ゆで卵', category: '料理', imagePath: 'assets/images/yudetamago.png');
-      } else if (sortedPlacedItemIds.contains('kome') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'tamagokakegohan', name: '卵かけご飯', category: '料理', imagePath: 'assets/images/tamagokakegohan.png');
-      } else if (sortedPlacedItemIds.contains('komugi') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'kiji', name: '生地', category: '素材', imagePath: 'assets/images/kiji.png');
-      } else if (sortedPlacedItemIds.contains('kome') && sortedPlacedItemIds.contains('oyu')) {
-        resultItem = ItemData(id: 'okayu', name: 'おかゆ', category: '料理', imagePath: 'assets/images/okayu.png');
-      } else if (sortedPlacedItemIds.contains('okayu') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'tamagogayu', name: '卵がゆ', category: '料理', imagePath: 'assets/images/tamagogayu.png');
-      } else if (sortedPlacedItemIds.contains('tamago') && sortedPlacedItemIds.contains('hi')) {
-        resultItem = ItemData(id: 'tamagoyaki', name: '卵焼き', category: '料理', imagePath: 'assets/images/tamagoyaki.png');
-      } else if (sortedPlacedItemIds.contains('kiji') && sortedPlacedItemIds.contains('hi')) {
-        resultItem = ItemData(id: 'pan', name: 'パン', category: '料理', imagePath: 'assets/images/pan.png');
-      } else if (sortedPlacedItemIds.contains('kiji') && sortedPlacedItemIds.contains('oyu')) {
-        resultItem = ItemData(id: 'men', name: '麺', category: '素材', imagePath: 'assets/images/men.png');
-      } else if (placedItemIds.where((id) => id == 'pan').length == 2) { // パン + パン = パン粉 (重複チェック)
-        resultItem = ItemData(id: 'panko', name: 'パン粉', category: '素材', imagePath: 'assets/images/panko.png');
-      } else if (sortedPlacedItemIds.contains('pan') && sortedPlacedItemIds.contains('hi')) { // パン + 火 = トースト
-        resultItem = ItemData(id: 'to-suto', name: 'トースト', category: '料理', imagePath: 'assets/images/to-suto.png');
-      } else if (sortedPlacedItemIds.contains('sio') && sortedPlacedItemIds.contains('kome')) {
-        resultItem = ItemData(id: 'onigiri', name: 'おにぎり', category: '料理', imagePath: 'assets/images/onigiri.png');
-      } else if (sortedPlacedItemIds.contains('onigiri') && sortedPlacedItemIds.contains('hi')) {
-        resultItem = ItemData(id: 'yakionigiri', name: '焼きおにぎり', category: '料理', imagePath: 'assets/images/yakionigiri.png');
-      } else if (sortedPlacedItemIds.contains('yudetamago') && sortedPlacedItemIds.contains('to-suto')) {
-        resultItem = ItemData(id: 'to-sutoeggu', name: 'トーストエッグ', category: '料理', imagePath: 'assets/images/to-sutoeggu.png');
-      } else if (sortedPlacedItemIds.contains('kiji') && sortedPlacedItemIds.contains('hi') && !placedItemIds.contains('pan')) { // クッキーも生地+火だが、パンと競合しないように
-        resultItem = ItemData(id: 'kukki-', name: 'クッキー', category: '料理', imagePath: 'assets/images/kukki-.png');
-      } else if (sortedPlacedItemIds.contains('yudetamago') && sortedPlacedItemIds.contains('syouyu')) {
-        resultItem = ItemData(id: 'nitamago', name: '煮卵', category: '料理', imagePath: 'assets/images/nitamago.png');
-      } else if (sortedPlacedItemIds.contains('pan') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'hurentito-suto', name: 'フレンチトースト', category: '料理', imagePath: 'assets/images/hurentito-suto.png');
-      } else if (sortedPlacedItemIds.contains('toriniku') && sortedPlacedItemIds.contains('hi')) {
-        resultItem = ItemData(id: 'yakitori', name: '焼き鳥', category: '料理', imagePath: 'assets/images/yakitori.png');
-      } else if (sortedPlacedItemIds.contains('toriniku') && sortedPlacedItemIds.contains('abura')) {
-        resultItem = ItemData(id: 'karaage', name: 'からあげ', category: '料理', imagePath: 'assets/images/karaage.png');
-      }
-
-    }
-    // 3個グループ
-    else if (placedItemIds.length == 3) {
-       if (sortedPlacedItemIds.contains('men') && sortedPlacedItemIds.contains('oyu') && sortedPlacedItemIds.contains('syouyu')) {
-        resultItem = ItemData(id: 'syouyu_ra-men', name: '醤油ラーメン', category: '料理', imagePath: 'assets/images/syouyu_ra-men.png');
-      } else if (sortedPlacedItemIds.contains('men') && sortedPlacedItemIds.contains('oyu') && sortedPlacedItemIds.contains('sio')) {
-        resultItem = ItemData(id: 'sio_ra-men', name: '塩ラーメン', category: '料理', imagePath: 'assets/images/sio_ra-men.png');
-      } else if (sortedPlacedItemIds.contains('toriniku') && sortedPlacedItemIds.contains('hi') && sortedPlacedItemIds.contains('syouyu')) {
-        resultItem = ItemData(id: 'teriyakitikin', name: 'てりやきチキン', category: '料理', imagePath: 'assets/images/teriyakitikin.png');
-      } else if (sortedPlacedItemIds.contains('toriniku') && sortedPlacedItemIds.contains('kome') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'oyakodon', name: '親子丼', category: '料理', imagePath: 'assets/images/oyakodon.png');
-      } else if (sortedPlacedItemIds.contains('toriniku') && sortedPlacedItemIds.contains('oyu') && sortedPlacedItemIds.contains('sio')) {
-        resultItem = ItemData(id: 'tikinsu-pu', name: 'チキンスープ', category: '素材', imagePath: 'assets/images/tikinsu-pu.png');
-      } else if (sortedPlacedItemIds.contains('toriniku') && sortedPlacedItemIds.contains('abura') && sortedPlacedItemIds.contains('panko')) {
-        resultItem = ItemData(id: 'tikinkatu', name: 'チキンカツ', category: '料理', imagePath: 'assets/images/tikinkatu.png');
-      } else if (sortedPlacedItemIds.contains('yakitori') && sortedPlacedItemIds.contains('kome') && sortedPlacedItemIds.contains('tamago')) {
-        resultItem = ItemData(id: 'yakitoridon', name: '焼き鳥丼', category: '料理', imagePath: 'assets/images/yakitoridon.png');
+    for (var recipe in _recipes) {
+      // 素材名をidに変換
+      final recipeIds = recipe.ingredients
+          .map((name) => _nameToIdMap[name])
+          .where((id) => id != null)
+          .cast<String>()
+          .toList()
+        ..sort();
+      // 素材数と内容が完全に一致する場合のみマッチ
+      if (placedItemIds.length == recipeIds.length &&
+          placedItemIds.toSet().difference(recipeIds.toSet()).isEmpty) {
+        print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
+        resultItem = ItemData(
+          id: recipe.id,
+          name: recipe.name,
+          category: recipe.category,
+          imagePath: recipe.imagePath,
+        );
+        break;
       }
     }
 
     if (resultItem != null) {
-      if (!_availableItems.contains(resultItem)) {
+      // 重複チェックをidベースで厳密に行う
+      final alreadyExists = _availableItems.any((item) => item.id == resultItem!.id);
+      if (!alreadyExists) {
         setState(() {
           _availableItems.add(resultItem!);
           _availableItems.sort((a, b) => a.id.compareTo(b.id));
+          _filteredItems = List.from(_availableItems);
         });
+        _saveProgress();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${resultItem.name} を発見しました！')),
         );
-
-        // アンロックロジック（仮）
-        if (_availableItems.length >= 10 && !_availableItems.any((item) => item.id == 'syouyu')) {
-          setState(() {
-            _availableItems.add(ItemData(id: 'syouyu', name: '醤油', category: '素材', imagePath: 'assets/images/syouyu.png'));
-            _availableItems.add(ItemData(id: 'satou', name: '砂糖', category: '素材', imagePath: 'assets/images/satou.png'));
-            _availableItems.sort((a, b) => a.id.compareTo(b.id));
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('新しい素材「醤油」と「砂糖」をアンロックしました！')),
-          );
-        }
-        if (_availableItems.length >= 20 && !_availableItems.any((item) => item.id == 'toriniku')) {
-          setState(() {
-            _availableItems.add(ItemData(id: 'toriniku', name: '鶏肉', category: '素材', imagePath: 'assets/images/toriniku.png'));
-            _availableItems.sort((a, b) => a.id.compareTo(b.id));
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('新しい素材「鶏肉」をアンロックしました！')),
-          );
-        }
-        if (_availableItems.length >= 25 && !_availableItems.any((item) => item.id == 'abura')) {
-          setState(() {
-            _availableItems.add(ItemData(id: 'abura', name: '油', category: '調理', imagePath: 'assets/images/abura.png'));
-            _availableItems.sort((a, b) => a.id.compareTo(b.id));
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('新しい調理「油」をアンロックしました！')),
-          );
-        }
-        if (_availableItems.length >= 30 && !_availableItems.any((item) => item.id == 'yasai')) {
-          setState(() {
-            _availableItems.add(ItemData(id: 'yasai', name: '野菜', category: '素材', imagePath: 'assets/images/yasai.png'));
-            _availableItems.sort((a, b) => a.id.compareTo(b.id));
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('新しい素材「野菜」をアンロックしました！')),
-          );
-        }
-
+        _unlockItems();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${resultItem.name} はすでに発見済みです！')),
@@ -410,21 +418,43 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  void _unlockItems() {
+    final unlockableItems = _recipes.where((recipe) {
+      if (recipe.unlockCondition.contains('作成でアンロック')) {
+        final requiredCount = int.tryParse(recipe.unlockCondition.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        return _availableItems.length >= requiredCount && !_availableItems.any((item) => item.id == recipe.id);
+      }
+      return false;
+    }).toList();
+
+    if (unlockableItems.isNotEmpty) {
+      setState(() {
+        for (var recipe in unlockableItems) {
+          _availableItems.add(ItemData(
+            id: recipe.id,
+            name: recipe.name,
+            category: recipe.category,
+            imagePath: recipe.imagePath,
+          ));
+        }
+        _availableItems.sort((a, b) => a.id.compareTo(b.id));
+        _filteredItems = List.from(_availableItems);
+      });
+      _saveProgress();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('新しいアイテムをアンロックしました！')),
+      );
+    }
+  }
+
   void _filterItems(String category) {
     setState(() {
-      final List<ItemData> allDiscoveredItems = List.from(_allInitialItems);
-      for (var item in _availableItems) {
-        if (!allDiscoveredItems.contains(item)) {
-          allDiscoveredItems.add(item);
-        }
-      }
-
       if (category == 'すべて') {
-        _availableItems = allDiscoveredItems;
+        _filteredItems = List.from(_availableItems);
       } else {
-        _availableItems = allDiscoveredItems.where((item) => item.category == category).toList();
+        _filteredItems = _availableItems.where((item) => item.category == category).toList();
       }
-      _availableItems.sort((a, b) => a.id.compareTo(b.id));
+      _filteredItems.sort((a, b) => a.id.compareTo(b.id));
     });
   }
 }
