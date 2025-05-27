@@ -177,29 +177,23 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.save),
-                    color: accentColor,
-                    onPressed: () => _saveProgress(showMessage: true),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.lightbulb_outline),
-                    color: accentColor,
-                    onPressed: () {
-                      print('ヒントボタンが押されました');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('ヒントはまだ実装されていません！')),
-                      );
-                    },
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_availableItems.length}/${_recipes.length}',
+                    style: const TextStyle(
+                      color: accentColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.help_outline),
+                    icon: const Icon(Icons.menu),
                     color: accentColor,
                     onPressed: () {
-                      print('遊び方ボタンが押されました');
+                      print('メニューが押されました');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('遊び方はまだ実装されていません！')),
+                        const SnackBar(content: Text('メニューはまだ実装されていません！')),
                       );
                     },
                   ),
@@ -369,14 +363,15 @@ class _MainScreenState extends State<MainScreen> {
     ItemData? resultItem;
 
     for (var recipe in _recipes) {
+      // 素材名をidに変換
       final recipeIds = recipe.ingredients
           .map((name) => _nameToIdMap[name])
           .where((id) => id != null)
           .cast<String>()
           .toList()
         ..sort();
-      if (placedItemIds.length == recipeIds.length &&
-          placedItemIds.toSet().difference(recipeIds.toSet()).isEmpty) {
+      // 素材数と内容が完全に一致する場合のみマッチ（ソート済みで比較）
+      if (placedItemIds.length == recipeIds.length && placedItemIds.join(',') == recipeIds.join(',')) {
         print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
         resultItem = ItemData(
           id: recipe.id,
@@ -392,7 +387,7 @@ class _MainScreenState extends State<MainScreen> {
       final alreadyExists = _availableItems.any((item) => item.id == resultItem!.id);
       if (!alreadyExists) {
         setState(() {
-          _availableItems.add(resultItem!); // 末尾に追加
+          _availableItems.add(resultItem!);
           _filteredItems = List.from(_availableItems);
         });
         _saveProgress();
@@ -407,6 +402,7 @@ class _MainScreenState extends State<MainScreen> {
       }
       _clearAllFooterSlots();
     } else {
+      print('No match: Placed: $placedItemIds');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('この組み合わせからは何も生まれませんでした...')),
       );
@@ -426,7 +422,7 @@ class _MainScreenState extends State<MainScreen> {
     if (unlockableItems.isNotEmpty) {
       setState(() {
         for (var recipe in unlockableItems) {
-          _availableItems.add(ItemData( // 末尾に追加
+          _availableItems.add(ItemData(
             id: recipe.id,
             name: recipe.name,
             category: recipe.category,
@@ -437,7 +433,7 @@ class _MainScreenState extends State<MainScreen> {
       });
       _saveProgress();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('新しいアイテムをアンロックしました！')),
+        const SnackBar(content: Text('新しいアイテムをアンロックしました！')),
       );
     }
   }
@@ -449,7 +445,6 @@ class _MainScreenState extends State<MainScreen> {
       } else {
         _filteredItems = _availableItems.where((item) => item.category == category).toList();
       }
-      // ソートを削除して解放順を維持
     });
   }
 }
