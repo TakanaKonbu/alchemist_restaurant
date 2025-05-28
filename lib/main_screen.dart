@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:alchemist_restaurant/models/item_data.dart';
 import 'package:alchemist_restaurant/menu_drawer.dart';
+import 'package:alchemist_restaurant/search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -195,7 +196,15 @@ class _MainScreenState extends State<MainScreen> {
                     icon: const Icon(Icons.search),
                     color: accentColor,
                     onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (context) => SearchScreen(
+                          availableItems: _availableItems,
+                          footerSlots: _footerSlots,
+                          onAddItem: _addItemToFooter,
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(width: 8),
