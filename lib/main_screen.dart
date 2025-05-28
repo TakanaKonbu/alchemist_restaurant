@@ -8,6 +8,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 class Recipe {
   final String id;
@@ -27,14 +28,21 @@ class Recipe {
   });
 }
 
+class HintData {
+  final Recipe recipe;
+  final List<String> hintIngredients;
+
+  HintData({required this.recipe, required this.hintIngredients});
+}
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MainScreen> createState() => MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> {
   String _selectedDropdownValue = 'すべて';
   static const Color accentColor = Color(0xFFFF7B00);
   static const Color emptySlotColor = Colors.grey;
@@ -45,9 +53,10 @@ class _MainScreenState extends State<MainScreen> {
   List<ItemData>? _availableItems;
   List<ItemData>? _filteredItems;
   final List<ItemData?> _footerSlots = List.filled(4, null);
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ItemData? _createdItem;
+  HintData? _hintData;
   Timer? _createdItemTimer;
+  Timer? _hintTimer;
   final AudioPlayer _bgmPlayer = AudioPlayer(playerId: 'bgmPlayer');
   final AudioPlayer _effectPlayer = AudioPlayer(playerId: 'effectPlayer');
   bool _isLoading = true;
@@ -66,6 +75,8 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _isLoading = false;
       });
+      print('Initialized: Available items: ${_availableItems?.length}, Recipes: ${_recipes.length}');
+      print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
     } catch (e) {
       print('Error initializing data: $e');
       setState(() {
@@ -76,7 +87,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _playBgm() async {
     try {
-      // BGM用のオーディオコンテキスト
       await _bgmPlayer.setAudioContext(
         AudioContext(
           android: AudioContextAndroid(
@@ -104,7 +114,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _playEffect(String fileName) async {
     try {
-      // 効果音用のオーディオコンテキスト
       await _effectPlayer.setAudioContext(
         AudioContext(
           android: AudioContextAndroid(
@@ -112,7 +121,7 @@ class _MainScreenState extends State<MainScreen> {
             stayAwake: false,
             contentType: AndroidContentType.sonification,
             usageType: AndroidUsageType.notification,
-            audioFocus: AndroidAudioFocus.gainTransientMayDuck, // BGM音量を一時的に下げる
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.playback,
@@ -120,14 +129,12 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
       );
-      // BGMの状態を保存
       final wasBgmPlaying = _bgmPlayer.state == PlayerState.playing;
       await _effectPlayer.setSource(AssetSource('audio/$fileName'));
       await _effectPlayer.setReleaseMode(ReleaseMode.release);
       await _effectPlayer.setVolume(0.8);
       await _effectPlayer.resume();
       print('Effect playing: $fileName');
-      // 効果音完了後にBGMを再開
       _effectPlayer.onPlayerStateChanged.listen((state) {
         if (state == PlayerState.completed && wasBgmPlaying) {
           _bgmPlayer.resume();
@@ -144,6 +151,7 @@ class _MainScreenState extends State<MainScreen> {
     _bgmPlayer.dispose();
     _effectPlayer.dispose();
     _createdItemTimer?.cancel();
+    _hintTimer?.cancel();
     super.dispose();
   }
 
@@ -213,11 +221,77 @@ class _MainScreenState extends State<MainScreen> {
         category: item['category'],
         imagePath: item['imagePath'],
       )).toList();
-      _filteredItems = List.from(_availableItems!);
     } else {
       _availableItems = List.from(_allInitialItems);
-      _filteredItems = List.from(_allInitialItems);
     }
+    _filteredItems = List.from(_availableItems!);
+    print('Loaded progress: Available items: ${_availableItems?.length}');
+    print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
+  }
+
+  void showHint() {
+    print('showHint called');
+    if (_availableItems == null || _availableItems!.isEmpty || _recipes.isEmpty) {
+      print('No available items or recipes: items=${_availableItems?.length}, recipes=${_recipes.length}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ヒントが見つかりません')),
+      );
+      return;
+    }
+
+    final hintRecipe = _findHintRecipe();
+    if (hintRecipe == null) {
+      print('No hint recipe found');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('現在作れるレシピがありません')),
+      );
+      return;
+    }
+
+    setState(() {
+      _hintData = hintRecipe;
+      print('Hint data set: ${_hintData!.recipe.name}');
+    });
+    _hintTimer?.cancel();
+    _hintTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _hintData = null;
+          print('Hint data cleared');
+        });
+      }
+    });
+  }
+
+  HintData? _findHintRecipe() {
+    print('Finding hint recipe...');
+    final availableIds = _availableItems!.map((item) => item.id).toSet();
+    print('Available IDs: $availableIds');
+    final possibleRecipes = _recipes.where((recipe) {
+      final recipeIds = recipe.ingredients
+          .map((name) => _nameToIdMap[name])
+          .where((id) => id != null)
+          .toSet();
+      print('Recipe: ${recipe.name}, Ingredients: ${recipe.ingredients}, Required IDs: $recipeIds');
+      final hasAnyId = recipeIds.isNotEmpty && recipeIds.any((id) => availableIds.contains(id));
+      if (!hasAnyId) {
+        print('Recipe ${recipe.name} not possible: no matching IDs');
+      }
+      return hasAnyId;
+    }).toList();
+
+    if (possibleRecipes.isEmpty) {
+      print('No possible recipes found');
+      return null;
+    }
+
+    final random = Random();
+    final selectedRecipe = possibleRecipes[random.nextInt(possibleRecipes.length)];
+    final ingredients = selectedRecipe.ingredients;
+    final hintIngredients = ingredients.sublist(0, ingredients.length - 1)
+      ..add('？？？');
+    print('Hint for ${selectedRecipe.name}: $hintIngredients');
+    return HintData(recipe: selectedRecipe, hintIngredients: hintIngredients);
   }
 
   @override
@@ -230,9 +304,8 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: const Color(0xFFFFF6E6),
-      drawer: const MenuDrawer(),
+      drawer: MenuDrawer(),
       body: Stack(
         children: [
           SafeArea(
@@ -259,8 +332,8 @@ class _MainScreenState extends State<MainScreen> {
                               onChanged: (String? newValue) {
                                 setState(() {
                                   _selectedDropdownValue = newValue!;
+                                  _filterItems();
                                 });
-                                _filterItems(newValue!);
                               },
                               items: <String>['すべて', '調理', '素材', '料理']
                                   .map<DropdownMenuItem<String>>((String value) {
@@ -307,12 +380,14 @@ class _MainScreenState extends State<MainScreen> {
                         },
                       ),
                       const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.menu),
-                        color: accentColor,
-                        onPressed: () {
-                          _scaffoldKey.currentState?.openDrawer();
-                        },
+                      Builder(
+                        builder: (context) => IconButton(
+                          icon: const Icon(Icons.menu),
+                          color: accentColor,
+                          onPressed: () {
+                            Scaffold.of(context).openDrawer();
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -432,6 +507,66 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
             ),
+          if (_hintData != null)
+            Positioned.fill(
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: _hintData != null ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8.0,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          _hintData!.recipe.imagePath,
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Image.asset('assets/images/unknown.png'),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_hintData!.recipe.name}のヒント',
+                          style: const TextStyle(
+                            color: Color(0xFFFF7B00),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        ..._hintData!.hintIngredients.asMap().entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2.0),
+                            child: Text(
+                              '${entry.key + 1}. ${entry.value}',
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.left,
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -451,22 +586,6 @@ class _MainScreenState extends State<MainScreen> {
         child: item != null
             ? Image.asset(item.imagePath, fit: BoxFit.contain)
             : Icon(Icons.circle, color: emptySlotColor),
-      ),
-    );
-  }
-
-  Widget _buildCircleIcon(IconData iconData, Color iconColor) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.5),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        iconData,
-        color: iconColor,
-        size: 24,
       ),
     );
   }
@@ -534,7 +653,8 @@ class _MainScreenState extends State<MainScreen> {
           .cast<String>()
           .toList()
         ..sort();
-      if (placedItemIds.length == recipeIds.length && placedItemIds.join(',') == recipeIds.join(',')) {
+      if (placedItemIds.length == recipeIds.length &&
+          placedItemIds.join(',') == recipeIds.join(',')) {
         print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
         resultItem = ItemData(
           id: recipe.id,
@@ -609,12 +729,12 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _filterItems(String category) {
+  void _filterItems() {
     setState(() {
-      if (category == 'すべて') {
+      if (_selectedDropdownValue == 'すべて') {
         _filteredItems = List.from(_availableItems!);
       } else {
-        _filteredItems = _availableItems!.where((item) => item.category == category).toList();
+        _filteredItems = _availableItems!.where((item) => item.category == _selectedDropdownValue).toList();
       }
     });
   }

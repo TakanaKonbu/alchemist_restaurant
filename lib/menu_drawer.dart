@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:alchemist_restaurant/main_screen.dart';
 
 class MenuDrawer extends StatelessWidget {
   const MenuDrawer({super.key});
 
-  static const Color accentColor = Color(0xFFFF7B00);
-
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: const Color(0xFFFFF6E6),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const SizedBox(
-            height: 80,
-            child: DrawerHeader(
-              decoration: BoxDecoration(
-                color: accentColor,
-              ),
-              child: Text(
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              height: 64,
+              color: const Color(0xFFFF7B00),
+              alignment: Alignment.center,
+              child: const Text(
                 'メニュー',
                 style: TextStyle(
                   color: Colors.white,
@@ -27,47 +24,48 @@ class MenuDrawer extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.lightbulb, color: accentColor),
-            title: const Text(
-              'ヒントを見る',
-              style: TextStyle(color: accentColor, fontSize: 18),
+            ListTile(
+              leading: const Icon(Icons.lightbulb_outline),
+              title: const Text('ヒントを見る'),
+              onTap: () {
+                print('ヒントを見る tapped');
+                final mainScreenState = context.findAncestorStateOfType<MainScreenState>();
+                if (mainScreenState != null) {
+                  print('MainScreenState found, calling showHint');
+                  mainScreenState.showHint();
+                } else {
+                  print('MainScreenState not found');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ヒントを表示できませんでした')),
+                  );
+                }
+                Navigator.pop(context);
+              },
             ),
-            onTap: () {
-              Navigator.pop(context); // Drawerを閉じる
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('メニュー1が選択されました')),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.help, color: accentColor),
-            title: const Text(
-              '遊び方',
-              style: TextStyle(color: accentColor, fontSize: 18),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('遊び方'),
+              onTap: () {
+                print('遊び方 tapped');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('遊び方が選択されました')),
+                );
+                Navigator.pop(context);
+              },
             ),
-            onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('メニュー2が選択されました')),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings, color: accentColor),
-            title: const Text(
-              'メニュー3',
-              style: TextStyle(color: accentColor, fontSize: 18),
+            ListTile(
+              leading: const Icon(Icons.menu),
+              title: const Text('メニュー3'),
+              onTap: () {
+                print('メニュー3 tapped');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('メニュー3が選択されました')),
+                );
+                Navigator.pop(context);
+              },
             ),
-            onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('メニュー3が選択されました')),
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
