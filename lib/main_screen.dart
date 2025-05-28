@@ -5,6 +5,7 @@ import 'package:alchemist_restaurant/search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'dart:async';
 import 'dart:convert';
 
 class Recipe {
@@ -44,6 +45,8 @@ class _MainScreenState extends State<MainScreen> {
   late List<ItemData> _filteredItems;
   final List<ItemData?> _footerSlots = List.filled(4, null);
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  ItemData? _createdItem;
+  Timer? _createdItemTimer;
 
   @override
   void initState() {
@@ -125,7 +128,7 @@ class _MainScreenState extends State<MainScreen> {
     } else {
       setState(() {
         _availableItems = List.from(_allInitialItems);
-        _filteredItems = List.from(_availableItems);
+        _filteredItems = List.from(_allInitialItems);
       });
     }
   }
@@ -136,156 +139,206 @@ class _MainScreenState extends State<MainScreen> {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFFFF6E6),
       drawer: const MenuDrawer(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: accentColor,
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedDropdownValue,
-                          icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                          iconSize: 24,
-                          elevation: 16,
-                          style: const TextStyle(color: Colors.white, fontSize: 18),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedDropdownValue = newValue!;
-                            });
-                            _filterItems(newValue!);
-                          },
-                          items: <String>['すべて', '調理', '素材', '料理']
-                              .map<DropdownMenuItem<String>>((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8.0),
-                                child: Text(
-                                  value,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          isExpanded: true,
-                          dropdownColor: accentColor,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: accentColor,
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedDropdownValue,
+                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                              iconSize: 24,
+                              elevation: 16,
+                              style: const TextStyle(color: Colors.white, fontSize: 18),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedDropdownValue = newValue!;
+                                });
+                                _filterItems(newValue!);
+                              },
+                              items: <String>['すべて', '調理', '素材', '料理']
+                                  .map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 8.0),
+                                    child: Text(
+                                      value,
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              isExpanded: true,
+                              dropdownColor: accentColor,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_availableItems.length}/${_recipes.length}',
+                        style: const TextStyle(
+                          color: accentColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        color: accentColor,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (context) => SearchScreen(
+                              availableItems: _availableItems,
+                              footerSlots: _footerSlots,
+                              onAddItem: _addItemToFooter,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.menu),
+                        color: accentColor,
+                        onPressed: () {
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${_availableItems.length}/${_recipes.length}',
-                    style: const TextStyle(
-                      color: accentColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                ),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(10.0),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 10.0,
+                      mainAxisSpacing: 10.0,
+                      childAspectRatio: 1.0,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    color: accentColor,
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        builder: (context) => SearchScreen(
-                          availableItems: _availableItems,
-                          footerSlots: _footerSlots,
-                          onAddItem: _addItemToFooter,
+                    itemCount: _filteredItems.length,
+                    itemBuilder: (context, index) {
+                      final ItemData item = _filteredItems[index];
+                      return GestureDetector(
+                        onTap: () => _addItemToFooter(item),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Image.asset(
+                                  item.imagePath,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Image.asset('assets/images/unknown.png'),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4.0, bottom: 2.0),
+                                child: Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.black54,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.menu),
-                    color: accentColor,
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(10.0),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 10.0,
-                  mainAxisSpacing: 10.0,
-                  childAspectRatio: 1.0,
                 ),
-                itemCount: _filteredItems.length,
-                itemBuilder: (context, index) {
-                  final ItemData item = _filteredItems[index];
-                  return GestureDetector(
-                    onTap: () => _addItemToFooter(item),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Image.asset(
-                              item.imagePath,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Image.asset('assets/images/unknown.png'),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4.0, bottom: 2.0),
-                            child: Text(
-                              item.name,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.black54,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                Container(
+                  color: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 10.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      ..._footerSlots.asMap().entries.map((entry) {
+                        final int index = entry.key;
+                        final ItemData? item = entry.value;
+                        return _buildFooterSlot(item, index);
+                      }).toList(),
+                      _buildStyledIcon(Icons.auto_awesome, _performAlchemy),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_createdItem != null)
+            Positioned.fill(
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: _createdItem != null ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8.0,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  );
-                },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          _createdItem!.imagePath,
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Image.asset('assets/images/unknown.png'),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_createdItem!.name} を作成しました',
+                          style: const TextStyle(
+                            color: Color(0xFFFF7B00),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            Container(
-              color: Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 10.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  ..._footerSlots.asMap().entries.map((entry) {
-                    final int index = entry.key;
-                    final ItemData? item = entry.value;
-                    return _buildFooterSlot(item, index);
-                  }).toList(),
-                  _buildStyledIcon(Icons.auto_awesome, _performAlchemy),
-                ],
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -405,11 +458,17 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           _availableItems.add(resultItem!);
           _filteredItems = List.from(_availableItems);
+          _createdItem = resultItem;
         });
         _saveProgress();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${resultItem.name} を発見しました！')),
-        );
+        _createdItemTimer?.cancel();
+        _createdItemTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _createdItem = null;
+            });
+          }
+        });
         _unlockItems();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
