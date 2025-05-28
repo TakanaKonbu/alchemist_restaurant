@@ -5,6 +5,7 @@ import 'package:alchemist_restaurant/search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -41,18 +42,109 @@ class _MainScreenState extends State<MainScreen> {
   final List<ItemData> _allInitialItems = [];
   List<Recipe> _recipes = [];
   Map<String, String> _nameToIdMap = {};
-  late List<ItemData> _availableItems;
-  late List<ItemData> _filteredItems;
+  List<ItemData>? _availableItems;
+  List<ItemData>? _filteredItems;
   final List<ItemData?> _footerSlots = List.filled(4, null);
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ItemData? _createdItem;
   Timer? _createdItemTimer;
+  final AudioPlayer _bgmPlayer = AudioPlayer(playerId: 'bgmPlayer');
+  final AudioPlayer _effectPlayer = AudioPlayer(playerId: 'effectPlayer');
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadRecipes();
-    _loadProgress();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    try {
+      await _loadRecipes();
+      await _loadProgress();
+      await _playBgm();
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error initializing data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _playBgm() async {
+    try {
+      // BGM用のオーディオコンテキスト
+      await _bgmPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: false,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.media,
+            audioFocus: AndroidAudioFocus.gain,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {AVAudioSessionOptions.mixWithOthers},
+          ),
+        ),
+      );
+      await _bgmPlayer.setSource(AssetSource('audio/bgm.mp3'));
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _bgmPlayer.setVolume(0.5);
+      await _bgmPlayer.resume();
+      print('BGM playing: bgm.mp3');
+    } catch (e) {
+      print('Error playing BGM: $e');
+    }
+  }
+
+  Future<void> _playEffect(String fileName) async {
+    try {
+      // 効果音用のオーディオコンテキスト
+      await _effectPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: false,
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.notification,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck, // BGM音量を一時的に下げる
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {AVAudioSessionOptions.mixWithOthers},
+          ),
+        ),
+      );
+      // BGMの状態を保存
+      final wasBgmPlaying = _bgmPlayer.state == PlayerState.playing;
+      await _effectPlayer.setSource(AssetSource('audio/$fileName'));
+      await _effectPlayer.setReleaseMode(ReleaseMode.release);
+      await _effectPlayer.setVolume(0.8);
+      await _effectPlayer.resume();
+      print('Effect playing: $fileName');
+      // 効果音完了後にBGMを再開
+      _effectPlayer.onPlayerStateChanged.listen((state) {
+        if (state == PlayerState.completed && wasBgmPlaying) {
+          _bgmPlayer.resume();
+          print('BGM resumed after effect: $fileName');
+        }
+      });
+    } catch (e) {
+      print('Error playing effect $fileName: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _bgmPlayer.dispose();
+    _effectPlayer.dispose();
+    _createdItemTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadRecipes() async {
@@ -86,7 +178,6 @@ class _MainScreenState extends State<MainScreen> {
         return recipe;
       }).where((recipe) => recipe.name.isNotEmpty).toList();
       print('Name to ID Map: $_nameToIdMap');
-      setState(() {});
     } catch (e) {
       print('Error loading recipes: $e');
     }
@@ -94,12 +185,12 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _saveProgress({bool showMessage = false}) async {
     final prefs = await SharedPreferences.getInstance();
-    final itemsJson = jsonEncode(_availableItems.map((item) => {
+    final itemsJson = jsonEncode(_availableItems?.map((item) => {
       'id': item.id,
       'name': item.name,
       'category': item.category,
       'imagePath': item.imagePath,
-    }).toList());
+    }).toList() ?? []);
     await prefs.setString('availableItems', itemsJson);
     if (showMessage) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,25 +207,28 @@ class _MainScreenState extends State<MainScreen> {
     final itemsJson = prefs.getString('availableItems');
     if (itemsJson != null) {
       final List<dynamic> itemsList = jsonDecode(itemsJson);
-      setState(() {
-        _availableItems = itemsList.map((item) => ItemData(
-          id: item['id'],
-          name: item['name'],
-          category: item['category'],
-          imagePath: item['imagePath'],
-        )).toList();
-        _filteredItems = List.from(_availableItems);
-      });
+      _availableItems = itemsList.map((item) => ItemData(
+        id: item['id'],
+        name: item['name'],
+        category: item['category'],
+        imagePath: item['imagePath'],
+      )).toList();
+      _filteredItems = List.from(_availableItems!);
     } else {
-      setState(() {
-        _availableItems = List.from(_allInitialItems);
-        _filteredItems = List.from(_allInitialItems);
-      });
+      _availableItems = List.from(_allInitialItems);
+      _filteredItems = List.from(_allInitialItems);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading || _availableItems == null || _filteredItems == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFFFF6E6),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF7B00))),
+      );
+    }
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFFFF6E6),
@@ -189,7 +283,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${_availableItems.length}/${_recipes.length}',
+                        '${_availableItems!.length}/${_recipes.length}',
                         style: const TextStyle(
                           color: accentColor,
                           fontSize: 18,
@@ -205,7 +299,7 @@ class _MainScreenState extends State<MainScreen> {
                             context: context,
                             isScrollControlled: true,
                             builder: (context) => SearchScreen(
-                              availableItems: _availableItems,
+                              availableItems: _availableItems!,
                               footerSlots: _footerSlots,
                               onAddItem: _addItemToFooter,
                             ),
@@ -232,9 +326,9 @@ class _MainScreenState extends State<MainScreen> {
                       mainAxisSpacing: 10.0,
                       childAspectRatio: 1.0,
                     ),
-                    itemCount: _filteredItems.length,
+                    itemCount: _filteredItems!.length,
                     itemBuilder: (context, index) {
-                      final ItemData item = _filteredItems[index];
+                      final ItemData item = _filteredItems![index];
                       return GestureDetector(
                         onTap: () => _addItemToFooter(item),
                         child: Container(
@@ -453,13 +547,14 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     if (resultItem != null) {
-      final alreadyExists = _availableItems.any((item) => item.id == resultItem!.id);
+      final alreadyExists = _availableItems!.any((item) => item.id == resultItem!.id);
       if (!alreadyExists) {
         setState(() {
-          _availableItems.add(resultItem!);
-          _filteredItems = List.from(_availableItems);
+          _availableItems!.add(resultItem!);
+          _filteredItems = List.from(_availableItems!);
           _createdItem = resultItem;
         });
+        _playEffect('maked.mp3');
         _saveProgress();
         _createdItemTimer?.cancel();
         _createdItemTimer = Timer(const Duration(seconds: 2), () {
@@ -478,6 +573,7 @@ class _MainScreenState extends State<MainScreen> {
       _clearAllFooterSlots();
     } else {
       print('No match: Placed: $placedItemIds');
+      _playEffect('nothing.mp3');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('この組み合わせからは何も生まれませんでした...')),
       );
@@ -489,7 +585,7 @@ class _MainScreenState extends State<MainScreen> {
     final unlockableItems = _recipes.where((recipe) {
       if (recipe.unlockCondition.contains('作成でアンロック')) {
         final requiredCount = int.tryParse(recipe.unlockCondition.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        return _availableItems.length >= requiredCount && !_availableItems.any((item) => item.id == recipe.id);
+        return _availableItems!.length >= requiredCount && !_availableItems!.any((item) => item.id == recipe.id);
       }
       return false;
     }).toList();
@@ -497,14 +593,14 @@ class _MainScreenState extends State<MainScreen> {
     if (unlockableItems.isNotEmpty) {
       setState(() {
         for (var recipe in unlockableItems) {
-          _availableItems.add(ItemData(
+          _availableItems!.add(ItemData(
             id: recipe.id,
             name: recipe.name,
             category: recipe.category,
             imagePath: recipe.imagePath,
           ));
         }
-        _filteredItems = List.from(_availableItems);
+        _filteredItems = List.from(_availableItems!);
       });
       _saveProgress();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -516,9 +612,9 @@ class _MainScreenState extends State<MainScreen> {
   void _filterItems(String category) {
     setState(() {
       if (category == 'すべて') {
-        _filteredItems = List.from(_availableItems);
+        _filteredItems = List.from(_availableItems!);
       } else {
-        _filteredItems = _availableItems.where((item) => item.category == category).toList();
+        _filteredItems = _availableItems!.where((item) => item.category == category).toList();
       }
     });
   }
