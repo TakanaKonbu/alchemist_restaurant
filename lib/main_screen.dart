@@ -273,11 +273,16 @@ class MainScreenState extends State<MainScreen> {
           .where((id) => id != null)
           .toSet();
       print('Recipe: ${recipe.name}, Ingredients: ${recipe.ingredients}, Required IDs: $recipeIds');
-      final hasAnyId = recipeIds.isNotEmpty && recipeIds.any((id) => availableIds.contains(id));
-      if (!hasAnyId) {
-        print('Recipe ${recipe.name} not possible: no matching IDs');
+      final hasAllIds = recipeIds.isNotEmpty && recipeIds.every((id) => availableIds.contains(id));
+      if (!hasAllIds) {
+        print('Recipe ${recipe.name} not possible: missing IDs ${recipeIds.difference(availableIds)}');
+        return false;
       }
-      return hasAnyId;
+      if (availableIds.contains(recipe.id)) {
+        print('Recipe ${recipe.name} already discovered');
+        return false;
+      }
+      return true;
     }).toList();
 
     if (possibleRecipes.isEmpty) {
@@ -653,8 +658,7 @@ class MainScreenState extends State<MainScreen> {
           .cast<String>()
           .toList()
         ..sort();
-      if (placedItemIds.length == recipeIds.length &&
-          placedItemIds.join(',') == recipeIds.join(',')) {
+      if (placedItemIds.length == recipeIds.length && placedItemIds.join(',') == recipeIds.join(',')) {
         print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
         resultItem = ItemData(
           id: recipe.id,
