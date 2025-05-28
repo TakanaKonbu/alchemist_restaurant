@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:alchemist_restaurant/main_screen.dart';
 
+import 'howto_screen.dart';
+
 class MenuDrawer extends StatelessWidget {
   const MenuDrawer({super.key});
 
@@ -46,11 +48,10 @@ class MenuDrawer extends StatelessWidget {
               leading: const Icon(Icons.info_outline),
               title: const Text('遊び方'),
               onTap: () {
-                print('遊び方 tapped');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('遊び方が選択されました')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HowToScreen()),
                 );
-                Navigator.pop(context);
               },
             ),
             ListTile(

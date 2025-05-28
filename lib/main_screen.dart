@@ -42,7 +42,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => MainScreenState();
 }
 
-class MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _selectedDropdownValue = 'すべて';
   static const Color accentColor = Color(0xFFFF7B00);
   static const Color emptySlotColor = Colors.grey;
@@ -60,11 +60,31 @@ class MainScreenState extends State<MainScreen> {
   final AudioPlayer _bgmPlayer = AudioPlayer(playerId: 'bgmPlayer');
   final AudioPlayer _effectPlayer = AudioPlayer(playerId: 'effectPlayer');
   bool _isLoading = true;
+  bool _isBgmPlaying = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      if (_isBgmPlaying) {
+        _bgmPlayer.pause();
+        print('BGM paused for background');
+        _isBgmPlaying = false;
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_isBgmPlaying) {
+        _bgmPlayer.resume();
+        print('BGM resumed for foreground');
+        _isBgmPlaying = true;
+      }
+    }
   }
 
   Future<void> _initializeData() async {
@@ -106,6 +126,7 @@ class MainScreenState extends State<MainScreen> {
       await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
       await _bgmPlayer.setVolume(0.5);
       await _bgmPlayer.resume();
+      _isBgmPlaying = true;
       print('BGM playing: bgm.mp3');
     } catch (e) {
       print('Error playing BGM: $e');
@@ -148,6 +169,7 @@ class MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _bgmPlayer.dispose();
     _effectPlayer.dispose();
     _createdItemTimer?.cancel();
