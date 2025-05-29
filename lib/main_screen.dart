@@ -242,9 +242,9 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           android: AudioContextAndroid(
             isSpeakerphoneOn: false,
             stayAwake: false,
-            contentType: AndroidContentType.sonification,
-            usageType: AndroidUsageType.notification,
-            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+              contentType: AndroidContentType.music, // musicを維持（マナーモード対応）
+              usageType: AndroidUsageType.media, // mediaを維持
+              audioFocus: AndroidAudioFocus.gainTransientMayDuck,
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.playback,
@@ -258,12 +258,12 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _effectPlayer.setVolume(0.8);
       await _effectPlayer.resume();
       if (kDebugMode) print('Effect playing: $fileName');
-      if (wasBgmPlaying) {
-        _effectPlayer.onPlayerStateChanged.firstWhere((state) => state == PlayerState.completed).then((_) {
-          _bgmPlayer.resume();
-          if (kDebugMode) print('BGM resumed after effect: $fileName');
-        });
-      }
+      // if (wasBgmPlaying) {
+      //   _effectPlayer.onPlayerStateChanged.firstWhere((state) => state == PlayerState.completed).then((_) {
+      //     _bgmPlayer.resume();
+      //     if (kDebugMode) print('BGM resumed after effect: $fileName');
+      //   });
+      // }
     } catch (e) {
       if (kDebugMode) print('Error playing effect $fileName: $e');
       ScaffoldMessenger.of(localContext).showSnackBar(
