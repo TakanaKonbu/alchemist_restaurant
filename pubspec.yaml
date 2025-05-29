@@ -14,6 +14,7 @@ dependencies:
   csv: ^6.0.0
   audioplayers: ^6.4.0
   google_mobile_ads: ^5.2.0
+  flutter_launcher_icons: ^0.13.1
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +29,13 @@ flutter:
     - assets/audio/bgm.mp3
     - assets/audio/maked.mp3
     - assets/audio/nothing.mp3
+
+flutter_icons:
+  image_path_android: assets/launcher_icon/android_icon.png
+  adaptive_icon_background: '#000000' #iconの背景色
+  adaptive_icon_foreground: assets/launcher_icon/android_icon.png
+  image_path_ios: assets/launcher_icon/ios_icon.png
+  android: true
+  adaptive_icon_padding: true
+  min_sdk_android: 30 #Androidの最小SDKバージョン
+  ios: true
