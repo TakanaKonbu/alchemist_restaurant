@@ -13,16 +13,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-class HintData extends StatelessWidget {
+class HintData {
   final Recipe recipe;
   final List<String> hintIngredients;
 
-  const HintData({Key? key, required this.recipe, required this.hintIngredients}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container();
-  }
+  HintData({required this.recipe, required this.hintIngredients});
 }
 
 class MainScreen extends StatefulWidget {
@@ -46,7 +41,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   ItemData? _createdItem;
   HintData? _hintData;
   Timer? _createdItemTimer;
-  Timer? _hintTimer;
   final AudioPlayer _bgmPlayer = AudioPlayer(playerId: 'bgmPlayer');
   final AudioPlayer _effectPlayer = AudioPlayer(playerId: 'effectPlayer');
   bool _isLoading = true;
@@ -272,7 +266,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _effectPlayer.dispose();
     _rewardedAd?.dispose();
     _createdItemTimer?.cancel();
-    _hintTimer?.cancel();
     super.dispose();
   }
 
@@ -373,15 +366,67 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _hintData = hintRecipe;
       print('Hint data set: ${_hintData!.recipe.name}');
     });
-    _hintTimer?.cancel();
-    _hintTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _hintData = null;
-          print('Hint data cleared');
-        });
-      }
-    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // ダイアログ外タップで閉じない
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFFFF6E6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                _hintData!.recipe.imagePath,
+                width: 100,
+                height: 100,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) =>
+                    Image.asset('assets/images/unknown.png'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${_hintData!.recipe.name}のヒント',
+                style: const TextStyle(
+                  color: Color(0xFFFF7B00),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              ..._hintData!.hintIngredients.asMap().entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: Text(
+                    '${entry.key + 1}. ${entry.value}',
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.left,
+                  ),
+                );
+              }),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, color: Color(0xFFFF7B00)),
+              onPressed: () {
+                print('Hint dialog closed');
+                Navigator.of(dialogContext).pop();
+                setState(() {
+                  _hintData = null;
+                  print('Hint data cleared');
+                });
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   HintData? _findHintRecipe() {
@@ -627,66 +672,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (_hintData != null)
-            Positioned.fill(
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _hintData != null ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8.0,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          _hintData!.recipe.imagePath,
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Image.asset('assets/images/unknown.png'),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${_hintData!.recipe.name}のヒント',
-                          style: const TextStyle(
-                            color: Color(0xFFFF7B00),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        ..._hintData!.hintIngredients.asMap().entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2.0),
-                            child: Text(
-                              '${entry.key + 1}. ${entry.value}',
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 16,
-                              ),
-                              textAlign: TextAlign.left,
-                            ),
-                          );
-                        }),
                       ],
                     ),
                   ),
