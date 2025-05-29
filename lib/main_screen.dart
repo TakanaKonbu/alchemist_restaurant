@@ -9,6 +9,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:alchemist_restaurant/ad_helper.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -28,7 +29,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
-  String _selectedDropdownValue = 'すべて';
+  String _selectedDropdownValue = '全て';
   static const Color accentColor = Color(0xFFFF7B00);
   static const Color emptySlotColor = Colors.grey;
 
@@ -63,10 +64,10 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final localContext = context;
     try {
       await MobileAds.instance.initialize();
-      // print('AdMob: MobileAds initialized');
+      if (kDebugMode) print('AdMob: MobileAds initialized');
       _loadRewardedAd();
     } catch (e) {
-      // print('AdMob: Failed to initialize MobileAds: $e');
+      if (kDebugMode) print('AdMob: Failed to initialize MobileAds: $e');
       ScaffoldMessenger.of(localContext).showSnackBar(
         const SnackBar(content: Text('広告の初期化に失敗しました。')),
       );
@@ -75,7 +76,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _loadRewardedAd() {
     if (_adLoadAttempts >= _maxAdLoadAttempts) {
-      // print('AdMob: Max ad load attempts reached ($_maxAdLoadAttempts)');
+      if (kDebugMode) print('AdMob: Max ad load attempts reached ($_maxAdLoadAttempts)');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('広告の読み込み試行上限に達しました。後で再度お試しください。')),
       );
@@ -83,13 +84,13 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     _adLoadAttempts++;
-    // print('AdMob: Attempting to load rewarded ad (attempt $_adLoadAttempts, unit: ${AdHelper.rewardedAdUnitId})');
+    if (kDebugMode) print('AdMob: Attempting to load rewarded ad (attempt $_adLoadAttempts, unit: ${AdHelper.rewardedAdUnitId})');
     RewardedAd.load(
       adUnitId: AdHelper.rewardedAdUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          // print('AdMob: Rewarded ad loaded successfully (unit: ${AdHelper.rewardedAdUnitId})');
+          if (kDebugMode) print('AdMob: Rewarded ad loaded successfully (unit: ${AdHelper.rewardedAdUnitId})');
           setState(() {
             _rewardedAd = ad;
             _isAdLoaded = true;
@@ -97,10 +98,10 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           });
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdShowedFullScreenContent: (ad) {
-              // print('AdMob: Rewarded ad shown');
+              if (kDebugMode) print('AdMob: Rewarded ad shown');
             },
             onAdFailedToShowFullScreenContent: (ad, error) {
-              // print('AdMob: Failed to show rewarded ad: $error');
+              if (kDebugMode) print('AdMob: Failed to show rewarded ad: $error');
               ad.dispose();
               setState(() {
                 _rewardedAd = null;
@@ -109,7 +110,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _loadRewardedAd();
             },
             onAdDismissedFullScreenContent: (ad) {
-              // print('AdMob: Rewarded ad dismissed');
+              if (kDebugMode) print('AdMob: Rewarded ad dismissed');
               ad.dispose();
               setState(() {
                 _rewardedAd = null;
@@ -120,7 +121,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           );
         },
         onAdFailedToLoad: (error) {
-          // print('AdMob: Failed to load rewarded ad: $error');
+          if (kDebugMode) print('AdMob: Failed to load rewarded ad: $error');
           setState(() {
             _isAdLoaded = false;
             _rewardedAd = null;
@@ -132,17 +133,17 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void showAdForHint(BuildContext context) {
-    // print('AdMob: Attempting to show ad (isAdLoaded: $_isAdLoaded, rewardedAd: ${_rewardedAd != null})');
+    if (kDebugMode) print('AdMob: Attempting to show ad (isAdLoaded: $_isAdLoaded, rewardedAd: ${_rewardedAd != null})');
     if (_isAdLoaded && _rewardedAd != null) {
       try {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-            // print('AdMob: User earned reward: ${reward.amount} ${reward.type}');
+            if (kDebugMode) print('AdMob: User earned reward: ${reward.amount} ${reward.type}');
             showHint();
           },
         );
       } catch (e) {
-        // print('AdMob: Error showing rewarded ad: $e');
+        if (kDebugMode) print('AdMob: Error showing rewarded ad: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('広告の表示に失敗しました。後でもう一度お試しください。')),
         );
@@ -153,7 +154,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         _loadRewardedAd();
       }
     } else {
-      // print('AdMob: Ad not loaded or null');
+      if (kDebugMode) print('AdMob: Ad not loaded or null');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('広告を読み込めませんでした。後でもう一度お試しください。')),
       );
@@ -167,13 +168,15 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused) {
       if (_isBgmPlaying) {
         _bgmPlayer.pause();
-        // print('BGM paused for background');
+        if (kDebugMode) print('BGM paused for background');
         _isBgmPlaying = false;
       }
+      _saveProgress();
+      if (kDebugMode) print('App paused: Progress saved');
     } else if (state == AppLifecycleState.resumed) {
       if (!_isBgmPlaying) {
         _bgmPlayer.resume();
-        // print('BGM resumed for foreground');
+        if (kDebugMode) print('BGM resumed for foreground');
         _isBgmPlaying = true;
       }
     }
@@ -187,10 +190,12 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       setState(() {
         _isLoading = false;
       });
-      // print('Initialized: Available items: ${_availableItems?.length}, Recipes: ${_recipes.length}');
-      // print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
+      if (kDebugMode) {
+        print('Initialized: Available items: ${_availableItems?.length}, Recipes: ${_recipes.length}');
+        print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
+      }
     } catch (e) {
-      // print('Error initializing data: $e');
+      if (kDebugMode) print('Error initializing data: $e');
       setState(() {
         _isLoading = false;
       });
@@ -220,9 +225,9 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _bgmPlayer.setVolume(0.5);
       await _bgmPlayer.resume();
       _isBgmPlaying = true;
-      // print('BGM playing: bgm.mp3');
+      if (kDebugMode) print('BGM playing: bgm.mp3');
     } catch (e) {
-      // print('Error playing BGM: $e');
+      if (kDebugMode) print('Error playing BGM: $e');
       ScaffoldMessenger.of(localContext).showSnackBar(
         const SnackBar(content: Text('BGMの再生に失敗しました。')),
       );
@@ -252,15 +257,15 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _effectPlayer.setReleaseMode(ReleaseMode.release);
       await _effectPlayer.setVolume(0.8);
       await _effectPlayer.resume();
-      // print('Effect playing: $fileName');
-      _effectPlayer.onPlayerStateChanged.listen((state) {
-        if (state == PlayerState.completed && wasBgmPlaying) {
+      if (kDebugMode) print('Effect playing: $fileName');
+      if (wasBgmPlaying) {
+        _effectPlayer.onPlayerStateChanged.firstWhere((state) => state == PlayerState.completed).then((_) {
           _bgmPlayer.resume();
-          // print('BGM resumed after effect: $fileName');
-        }
-      });
+          if (kDebugMode) print('BGM resumed after effect: $fileName');
+        });
+      }
     } catch (e) {
-      // print('Error playing effect $fileName: $e');
+      if (kDebugMode) print('Error playing effect $fileName: $e');
       ScaffoldMessenger.of(localContext).showSnackBar(
         const SnackBar(content: Text('効果音の再生に失敗しました。')),
       );
@@ -274,6 +279,8 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _effectPlayer.dispose();
     _rewardedAd?.dispose();
     _createdItemTimer?.cancel();
+    _saveProgress();
+    if (kDebugMode) print('App disposed: Progress saved');
     super.dispose();
   }
 
@@ -306,26 +313,36 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
         return recipe;
       }).where((recipe) => recipe.name.isNotEmpty).toList();
-      // print('Name to ID Map: $_nameToIdMap');
+      if (kDebugMode) print('Recipes loaded: ${_recipes.length}');
+      if (kDebugMode) print('Name to ID Map: $_nameToIdMap');
     } catch (e) {
-      // print('Error loading recipes: $e');
+      if (kDebugMode) print('Error loading recipes: $e');
     }
   }
 
-  Future<void> _saveProgress({bool showMessage = false}) async {
+  Future<void> _saveProgress() async {
     final localContext = context;
-    final prefs = await SharedPreferences.getInstance();
-    final itemsJson = jsonEncode(_availableItems?.map((item) => {
-      'id': item.id,
-      'name': item.name,
-      'category': item.category,
-      'imagePath': item.imagePath,
-    }) ?? []);
-    await prefs.setString('availableItems', itemsJson);
-    if (showMessage) {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final itemsJson = jsonEncode(_availableItems?.map((item) => {
+        'id': item.id,
+        'name': item.name,
+        'category': item.category,
+        'imagePath': item.imagePath,
+      }).toList() ?? []);
+      final success = await prefs.setString('availableItems', itemsJson);
+      if (kDebugMode) {
+        if (success) {
+          print('Progress saved: ${itemsJson.length} bytes, items: ${_availableItems?.length}');
+        } else {
+          print('Failed to save progress');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error saving progress: $e');
       ScaffoldMessenger.of(localContext).showSnackBar(
         const SnackBar(
-          content: Text('保存しました'),
+          content: Text('保存に失敗しました'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -333,28 +350,40 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadProgress() async {
-    final prefs = await SharedPreferences.getInstance();
-    final itemsJson = prefs.getString('availableItems');
-    if (itemsJson != null) {
-      final List<dynamic> itemsList = jsonDecode(itemsJson);
-      _availableItems = itemsList.map((item) => ItemData(
-        id: item['id'],
-        name: item['name'],
-        category: item['category'],
-        imagePath: item['imagePath'],
-      )).toList();
-    } else {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final itemsJson = prefs.getString('availableItems');
+      if (itemsJson != null && itemsJson.isNotEmpty) {
+        final List<dynamic> itemsList = jsonDecode(itemsJson);
+        _availableItems = itemsList.map((item) {
+          return ItemData(
+            id: item['id'] as String,
+            name: item['name'] as String,
+            category: item['category'] as String,
+            imagePath: item['imagePath'] as String,
+          );
+        }).toList();
+        if (kDebugMode) print('Progress loaded: ${_availableItems?.length} items');
+      } else {
+        _availableItems = List.from(_allInitialItems);
+        if (kDebugMode) print('No saved progress, using initial items: ${_allInitialItems.length}');
+        await _saveProgress();
+      }
+      _filteredItems = List.from(_availableItems!);
+      if (kDebugMode) print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
+    } catch (e) {
+      if (kDebugMode) print('Error loading progress: $e');
       _availableItems = List.from(_allInitialItems);
+      _filteredItems = List.from(_availableItems!);
+      await _saveProgress();
+      if (kDebugMode) print('Fallback to initial items: ${_allInitialItems.length}');
     }
-    _filteredItems = List.from(_availableItems!);
-    // print('Loaded progress: Available items: ${_availableItems?.length}');
-    // print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
   }
 
   void showHint() {
-    // print('showHint called');
+    if (kDebugMode) print('showHint called');
     if (_availableItems == null || _availableItems!.isEmpty || _recipes.isEmpty) {
-      // print('No available items or recipes: items=${_availableItems?.length}, recipes=${_recipes.length}');
+      if (kDebugMode) print('No available items or recipes: items=${_availableItems?.length}, recipes=${_recipes.length}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ヒントが見つかりません')),
       );
@@ -363,7 +392,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     final hintRecipe = _findHintRecipe();
     if (hintRecipe == null) {
-      // print('No hint recipe found');
+      if (kDebugMode) print('No hint recipe found');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('現在作れるレシピがありません')),
       );
@@ -372,7 +401,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     setState(() {
       _hintData = hintRecipe;
-      // print('Hint data set: ${_hintData!.recipe.name}');
+      if (kDebugMode) print('Hint data set: ${_hintData!.recipe.name}');
     });
 
     showDialog(
@@ -423,11 +452,11 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             IconButton(
               icon: const Icon(Icons.close, color: Color(0xFFFF7B00)),
               onPressed: () {
-                // print('Hint dialog closed');
+                if (kDebugMode) print('Hint dialog closed');
                 Navigator.of(dialogContext).pop();
                 setState(() {
                   _hintData = null;
-                  // print('Hint data cleared');
+                  if (kDebugMode) print('Hint data cleared');
                 });
               },
             ),
@@ -438,29 +467,29 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   HintData? _findHintRecipe() {
-    // print('Finding hint recipe...');
+    if (kDebugMode) print('Finding hint recipe...');
     final availableIds = _availableItems!.map((item) => item.id).toSet();
-    // print('Available IDs: $availableIds');
+    if (kDebugMode) print('Available IDs: $availableIds');
     final possibleRecipes = _recipes.where((recipe) {
       final recipeIds = recipe.ingredients
           .map((name) => _nameToIdMap[name])
           .where((id) => id != null)
           .toSet();
-      // print('Recipe: ${recipe.name}, Ingredients: ${recipe.ingredients}, Required IDs: $recipeIds');
+      if (kDebugMode) print('Recipe: ${recipe.name}, Ingredients: ${recipe.ingredients}, Required IDs: $recipeIds');
       final hasAllIds = recipeIds.isNotEmpty && recipeIds.every((id) => availableIds.contains(id));
       if (!hasAllIds) {
-        // print('Recipe ${recipe.name} not possible: missing IDs ${recipeIds.difference(availableIds)}');
+        if (kDebugMode) print('Recipe ${recipe.name} not possible: missing IDs ${recipeIds.difference(availableIds)}');
         return false;
       }
       if (availableIds.contains(recipe.id)) {
-        // print('Recipe ${recipe.name} already discovered');
+        if (kDebugMode) print('Recipe ${recipe.name} already discovered');
         return false;
       }
       return true;
     }).toList();
 
     if (possibleRecipes.isEmpty) {
-      // print('No possible recipes found');
+      if (kDebugMode) print('No possible recipes found');
       return null;
     }
 
@@ -469,7 +498,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final ingredients = selectedRecipe.ingredients;
     final hintIngredients = ingredients.sublist(0, ingredients.length - 1)
       ..add('？？？');
-    // print('Hint for ${selectedRecipe.name}: $hintIngredients');
+    if (kDebugMode) print('Hint for ${selectedRecipe.name}: $hintIngredients');
     return HintData(recipe: selectedRecipe, hintIngredients: hintIngredients);
   }
 
@@ -514,7 +543,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                                   _filterItems();
                                 });
                               },
-                              items: <String>['すべて', '調理', '素材', '料理']
+                              items: <String>['全て', '調理', '素材', '料理']
                                   .map<DropdownMenuItem<String>>((String value) {
                                 return DropdownMenuItem<String>(
                                   value: value,
@@ -750,6 +779,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       for (var i = 0; i < _footerSlots.length; i++) {
         _footerSlots[i] = null;
       }
+      if (kDebugMode) print('Slots cleared');
     });
   }
 
@@ -772,7 +802,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           .toList()
         ..sort();
       if (placedItemIds.length == recipeIds.length && placedItemIds.join(',') == recipeIds.join(',')) {
-        // print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
+        if (kDebugMode) print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
         resultItem = ItemData(
           id: recipe.id,
           name: recipe.name,
@@ -792,7 +822,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           _createdItem = resultItem;
         });
         _playEffect('maked.mp3');
-        _saveProgress();
         _createdItemTimer?.cancel();
         _createdItemTimer = Timer(const Duration(seconds: 2), () {
           if (mounted) {
@@ -801,7 +830,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             });
           }
         });
-        _unlockItems();
+        _unlockItems(resultItem);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${resultItem.name} はすでに発見済みです！')),
@@ -809,23 +838,23 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
       _clearAllFooterSlots();
     } else {
-      // print('No match: Placed: $placedItemIds');
+      if (kDebugMode) print('No match: Placed: $placedItemIds');
+      if (kDebugMode) print('Slots kept');
       _playEffect('nothing.mp3');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('この組み合わせからは何も生まれませんでした...')),
       );
-      _clearAllFooterSlots();
     }
   }
 
-  void _unlockItems() {
+  void _unlockItems(ItemData newItem) {
     final unlockableItems = _recipes.where((recipe) {
       if (recipe.unlockCondition.contains('作成でアンロック')) {
         final requiredCount = int.tryParse(recipe.unlockCondition.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         return _availableItems!.length >= requiredCount && !_availableItems!.any((item) => item.id == recipe.id);
       }
       return false;
-    });
+    }).toList();
 
     if (unlockableItems.isNotEmpty) {
       setState(() {
@@ -839,16 +868,17 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
         _filteredItems = List.from(_availableItems!);
       });
-      _saveProgress();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('新しいアイテムをアンロックしました！')),
       );
     }
+    _saveProgress();
+    if (kDebugMode) print('New item added: ${newItem.name}, Total items: ${_availableItems!.length}');
   }
 
   void _filterItems() {
     setState(() {
-      if (_selectedDropdownValue == 'すべて') {
+      if (_selectedDropdownValue == '全て') {
         _filteredItems = List.from(_availableItems!);
       } else {
         _filteredItems = _availableItems!.where((item) => item.category == _selectedDropdownValue).toList();

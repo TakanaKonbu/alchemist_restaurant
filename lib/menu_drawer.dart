@@ -92,17 +92,6 @@ class MenuDrawer extends StatelessWidget {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.menu),
-              title: const Text('メニュー3'),
-              onTap: () {
-                // print('メニュー3 tapped');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('メニュー3が選択されました')),
-                );
-                Navigator.pop(context);
-              },
-            ),
           ],
         ),
       ),
