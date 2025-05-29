@@ -2,7 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- 既存のキー -->
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleExecutable</key>
@@ -40,16 +39,19 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
-    <!-- オーディオ許可を追加 -->
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <true/>
-    </dict>
-    <key>UIBackgroundModes</key>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
+    <key>GADApplicationIdentifier</key>
+    <string>ca-app-pub-2836653067032260~5635889883</string>
+    <key>SKAdNetworkItems</key>
     <array>
-        <string>audio</string>
+        <dict>
+            <key>SKAdNetworkIdentifier</key>
+            <string>cstr6suwn9.skadnetwork</string>
+        </dict>
     </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>広告の読み込みとデバッグのためにローカルネットワークを使用します。</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

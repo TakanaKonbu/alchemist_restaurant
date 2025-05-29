@@ -1,38 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:alchemist_restaurant/models/item_data.dart';
+import 'package:alchemist_restaurant/models/recipe.dart';
 import 'package:alchemist_restaurant/menu_drawer.dart';
 import 'package:alchemist_restaurant/search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:audioplayers/audioplayers.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:alchemist_restaurant/ad_helper.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-class Recipe {
-  final String id;
-  final String name;
-  final List<String> ingredients;
-  final String unlockCondition;
-  final String imagePath;
-  final String category;
-
-  Recipe({
-    required this.id,
-    required this.name,
-    required this.ingredients,
-    required this.unlockCondition,
-    required this.imagePath,
-    required this.category,
-  });
-}
-
-class HintData {
+class HintData extends StatelessWidget {
   final Recipe recipe;
   final List<String> hintIngredients;
 
-  HintData({required this.recipe, required this.hintIngredients});
+  const HintData({Key? key, required this.recipe, required this.hintIngredients}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container();
+  }
 }
 
 class MainScreen extends StatefulWidget {
@@ -62,11 +52,119 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _isBgmPlaying = false;
 
+  RewardedAd? _rewardedAd;
+  bool _isAdLoaded = false;
+  int _adLoadAttempts = 0;
+  static const int _maxAdLoadAttempts = 3;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeData();
+    _initializeAds();
+  }
+
+  Future<void> _initializeAds() async {
+    try {
+      await MobileAds.instance.initialize();
+      print('AdMob: MobileAds initialized');
+      _loadRewardedAd();
+    } catch (e) {
+      print('AdMob: Failed to initialize MobileAds: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('広告の初期化に失敗しました。')),
+      );
+    }
+  }
+
+  void _loadRewardedAd() {
+    if (_adLoadAttempts >= _maxAdLoadAttempts) {
+      print('AdMob: Max ad load attempts reached ($_maxAdLoadAttempts)');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('広告の読み込み試行上限に達しました。後で再度お試しください。')),
+      );
+      return;
+    }
+
+    _adLoadAttempts++;
+    print('AdMob: Attempting to load rewarded ad (attempt $_adLoadAttempts, unit: ${AdHelper.rewardedAdUnitId})');
+    RewardedAd.load(
+      adUnitId: AdHelper.rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          print('AdMob: Rewarded ad loaded successfully (unit: ${AdHelper.rewardedAdUnitId})');
+          setState(() {
+            _rewardedAd = ad;
+            _isAdLoaded = true;
+            _adLoadAttempts = 0;
+          });
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdShowedFullScreenContent: (ad) {
+              print('AdMob: Rewarded ad shown');
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              print('AdMob: Failed to show rewarded ad: $error');
+              ad.dispose();
+              setState(() {
+                _rewardedAd = null;
+                _isAdLoaded = false;
+              });
+              _loadRewardedAd();
+            },
+            onAdDismissedFullScreenContent: (ad) {
+              print('AdMob: Rewarded ad dismissed');
+              ad.dispose();
+              setState(() {
+                _rewardedAd = null;
+                _isAdLoaded = false;
+              });
+              _loadRewardedAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (error) {
+          print('AdMob: Failed to load rewarded ad: $error');
+          setState(() {
+            _isAdLoaded = false;
+            _rewardedAd = null;
+          });
+          _loadRewardedAd();
+        },
+      ),
+    );
+  }
+
+  void showAdForHint(BuildContext context) {
+    print('AdMob: Attempting to show ad (isAdLoaded: $_isAdLoaded, rewardedAd: ${_rewardedAd != null})');
+    if (_isAdLoaded && _rewardedAd != null) {
+      try {
+        _rewardedAd!.show(
+          onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+            print('AdMob: User earned reward: ${reward.amount} ${reward.type}');
+            showHint();
+          },
+        );
+      } catch (e, stackTrace) {
+        print('AdMob: Error showing rewarded ad: $e');
+        print('Stack trace: $stackTrace');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('広告の表示に失敗しました。後でもう一度お試しください。')),
+        );
+        setState(() {
+          _rewardedAd = null;
+          _isAdLoaded = false;
+        });
+        _loadRewardedAd();
+      }
+    } else {
+      print('AdMob: Ad not loaded or null');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('広告を読み込めませんでした。後でもう一度お試しください。')),
+      );
+      _loadRewardedAd();
+    }
   }
 
   @override
@@ -172,6 +270,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _bgmPlayer.dispose();
     _effectPlayer.dispose();
+    _rewardedAd?.dispose();
     _createdItemTimer?.cancel();
     _hintTimer?.cancel();
     super.dispose();
@@ -332,7 +431,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF6E6),
-      drawer: MenuDrawer(),
+      drawer: const MenuDrawer(),
       body: Stack(
         children: [
           SafeArea(

@@ -12,7 +12,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.0
   csv: ^6.0.0
-  audioplayers: ^6.1.0  # サウンド再生用
+  audioplayers: ^6.4.0
+  google_mobile_ads: ^5.2.0
 
 dev_dependencies:
   flutter_test:
