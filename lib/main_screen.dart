@@ -17,7 +17,7 @@ class HintData {
   final Recipe recipe;
   final List<String> hintIngredients;
 
-  HintData({required this.recipe, required this.hintIngredients});
+  const HintData({required this.recipe, required this.hintIngredients});
 }
 
 class MainScreen extends StatefulWidget {
@@ -34,7 +34,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   final List<ItemData> _allInitialItems = [];
   List<Recipe> _recipes = [];
-  Map<String, String> _nameToIdMap = {};
+  final Map<String, String> _nameToIdMap = {};
   List<ItemData>? _availableItems;
   List<ItemData>? _filteredItems;
   final List<ItemData?> _footerSlots = List.filled(4, null);
@@ -60,13 +60,14 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initializeAds() async {
+    final localContext = context;
     try {
       await MobileAds.instance.initialize();
-      print('AdMob: MobileAds initialized');
+      // print('AdMob: MobileAds initialized');
       _loadRewardedAd();
     } catch (e) {
-      print('AdMob: Failed to initialize MobileAds: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
+      // print('AdMob: Failed to initialize MobileAds: $e');
+      ScaffoldMessenger.of(localContext).showSnackBar(
         const SnackBar(content: Text('広告の初期化に失敗しました。')),
       );
     }
@@ -74,7 +75,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _loadRewardedAd() {
     if (_adLoadAttempts >= _maxAdLoadAttempts) {
-      print('AdMob: Max ad load attempts reached ($_maxAdLoadAttempts)');
+      // print('AdMob: Max ad load attempts reached ($_maxAdLoadAttempts)');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('広告の読み込み試行上限に達しました。後で再度お試しください。')),
       );
@@ -82,13 +83,13 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     _adLoadAttempts++;
-    print('AdMob: Attempting to load rewarded ad (attempt $_adLoadAttempts, unit: ${AdHelper.rewardedAdUnitId})');
+    // print('AdMob: Attempting to load rewarded ad (attempt $_adLoadAttempts, unit: ${AdHelper.rewardedAdUnitId})');
     RewardedAd.load(
       adUnitId: AdHelper.rewardedAdUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          print('AdMob: Rewarded ad loaded successfully (unit: ${AdHelper.rewardedAdUnitId})');
+          // print('AdMob: Rewarded ad loaded successfully (unit: ${AdHelper.rewardedAdUnitId})');
           setState(() {
             _rewardedAd = ad;
             _isAdLoaded = true;
@@ -96,10 +97,10 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           });
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdShowedFullScreenContent: (ad) {
-              print('AdMob: Rewarded ad shown');
+              // print('AdMob: Rewarded ad shown');
             },
             onAdFailedToShowFullScreenContent: (ad, error) {
-              print('AdMob: Failed to show rewarded ad: $error');
+              // print('AdMob: Failed to show rewarded ad: $error');
               ad.dispose();
               setState(() {
                 _rewardedAd = null;
@@ -108,7 +109,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               _loadRewardedAd();
             },
             onAdDismissedFullScreenContent: (ad) {
-              print('AdMob: Rewarded ad dismissed');
+              // print('AdMob: Rewarded ad dismissed');
               ad.dispose();
               setState(() {
                 _rewardedAd = null;
@@ -119,7 +120,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           );
         },
         onAdFailedToLoad: (error) {
-          print('AdMob: Failed to load rewarded ad: $error');
+          // print('AdMob: Failed to load rewarded ad: $error');
           setState(() {
             _isAdLoaded = false;
             _rewardedAd = null;
@@ -131,18 +132,17 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void showAdForHint(BuildContext context) {
-    print('AdMob: Attempting to show ad (isAdLoaded: $_isAdLoaded, rewardedAd: ${_rewardedAd != null})');
+    // print('AdMob: Attempting to show ad (isAdLoaded: $_isAdLoaded, rewardedAd: ${_rewardedAd != null})');
     if (_isAdLoaded && _rewardedAd != null) {
       try {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-            print('AdMob: User earned reward: ${reward.amount} ${reward.type}');
+            // print('AdMob: User earned reward: ${reward.amount} ${reward.type}');
             showHint();
           },
         );
-      } catch (e, stackTrace) {
-        print('AdMob: Error showing rewarded ad: $e');
-        print('Stack trace: $stackTrace');
+      } catch (e) {
+        // print('AdMob: Error showing rewarded ad: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('広告の表示に失敗しました。後でもう一度お試しください。')),
         );
@@ -153,7 +153,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         _loadRewardedAd();
       }
     } else {
-      print('AdMob: Ad not loaded or null');
+      // print('AdMob: Ad not loaded or null');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('広告を読み込めませんでした。後でもう一度お試しください。')),
       );
@@ -167,13 +167,13 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused) {
       if (_isBgmPlaying) {
         _bgmPlayer.pause();
-        print('BGM paused for background');
+        // print('BGM paused for background');
         _isBgmPlaying = false;
       }
     } else if (state == AppLifecycleState.resumed) {
       if (!_isBgmPlaying) {
         _bgmPlayer.resume();
-        print('BGM resumed for foreground');
+        // print('BGM resumed for foreground');
         _isBgmPlaying = true;
       }
     }
@@ -187,10 +187,10 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       setState(() {
         _isLoading = false;
       });
-      print('Initialized: Available items: ${_availableItems?.length}, Recipes: ${_recipes.length}');
-      print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
+      // print('Initialized: Available items: ${_availableItems?.length}, Recipes: ${_recipes.length}');
+      // print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
     } catch (e) {
-      print('Error initializing data: $e');
+      // print('Error initializing data: $e');
       setState(() {
         _isLoading = false;
       });
@@ -198,6 +198,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _playBgm() async {
+    final localContext = context;
     try {
       await _bgmPlayer.setAudioContext(
         AudioContext(
@@ -219,13 +220,17 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _bgmPlayer.setVolume(0.5);
       await _bgmPlayer.resume();
       _isBgmPlaying = true;
-      print('BGM playing: bgm.mp3');
+      // print('BGM playing: bgm.mp3');
     } catch (e) {
-      print('Error playing BGM: $e');
+      // print('Error playing BGM: $e');
+      ScaffoldMessenger.of(localContext).showSnackBar(
+        const SnackBar(content: Text('BGMの再生に失敗しました。')),
+      );
     }
   }
 
   Future<void> _playEffect(String fileName) async {
+    final localContext = context;
     try {
       await _effectPlayer.setAudioContext(
         AudioContext(
@@ -247,15 +252,18 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       await _effectPlayer.setReleaseMode(ReleaseMode.release);
       await _effectPlayer.setVolume(0.8);
       await _effectPlayer.resume();
-      print('Effect playing: $fileName');
+      // print('Effect playing: $fileName');
       _effectPlayer.onPlayerStateChanged.listen((state) {
         if (state == PlayerState.completed && wasBgmPlaying) {
           _bgmPlayer.resume();
-          print('BGM resumed after effect: $fileName');
+          // print('BGM resumed after effect: $fileName');
         }
       });
     } catch (e) {
-      print('Error playing effect $fileName: $e');
+      // print('Error playing effect $fileName: $e');
+      ScaffoldMessenger.of(localContext).showSnackBar(
+        const SnackBar(content: Text('効果音の再生に失敗しました。')),
+      );
     }
   }
 
@@ -276,14 +284,13 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _recipes = rows.skip(1).map((row) {
         final ingredients = [row[1], row[2], row[3], row[4]]
             .where((e) => e != null && e.toString().trim().isNotEmpty)
-            .map((e) => e.toString().trim())
-            .toList();
+            .map((e) => e.toString().trim());
         final imageName = row[6]?.toString().trim() ?? 'unknown';
         final name = row[0]?.toString().trim() ?? '';
         final recipe = Recipe(
           id: imageName,
           name: name,
-          ingredients: ingredients,
+          ingredients: ingredients.toList(),
           unlockCondition: row[5]?.toString().trim() ?? '',
           imagePath: 'assets/images/$imageName.png',
           category: row[7]?.toString().trim() ?? '',
@@ -299,23 +306,24 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
         return recipe;
       }).where((recipe) => recipe.name.isNotEmpty).toList();
-      print('Name to ID Map: $_nameToIdMap');
+      // print('Name to ID Map: $_nameToIdMap');
     } catch (e) {
-      print('Error loading recipes: $e');
+      // print('Error loading recipes: $e');
     }
   }
 
   Future<void> _saveProgress({bool showMessage = false}) async {
+    final localContext = context;
     final prefs = await SharedPreferences.getInstance();
     final itemsJson = jsonEncode(_availableItems?.map((item) => {
       'id': item.id,
       'name': item.name,
       'category': item.category,
       'imagePath': item.imagePath,
-    }).toList() ?? []);
+    }) ?? []);
     await prefs.setString('availableItems', itemsJson);
     if (showMessage) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(localContext).showSnackBar(
         const SnackBar(
           content: Text('保存しました'),
           duration: Duration(seconds: 2),
@@ -339,14 +347,14 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _availableItems = List.from(_allInitialItems);
     }
     _filteredItems = List.from(_availableItems!);
-    print('Loaded progress: Available items: ${_availableItems?.length}');
-    print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
+    // print('Loaded progress: Available items: ${_availableItems?.length}');
+    // print('Available items: ${_availableItems?.map((item) => '${item.name} (${item.id})').join(', ')}');
   }
 
   void showHint() {
-    print('showHint called');
+    // print('showHint called');
     if (_availableItems == null || _availableItems!.isEmpty || _recipes.isEmpty) {
-      print('No available items or recipes: items=${_availableItems?.length}, recipes=${_recipes.length}');
+      // print('No available items or recipes: items=${_availableItems?.length}, recipes=${_recipes.length}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ヒントが見つかりません')),
       );
@@ -355,7 +363,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     final hintRecipe = _findHintRecipe();
     if (hintRecipe == null) {
-      print('No hint recipe found');
+      // print('No hint recipe found');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('現在作れるレシピがありません')),
       );
@@ -364,13 +372,13 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     setState(() {
       _hintData = hintRecipe;
-      print('Hint data set: ${_hintData!.recipe.name}');
+      // print('Hint data set: ${_hintData!.recipe.name}');
     });
 
     showDialog(
       context: context,
-      barrierDismissible: false, // ダイアログ外タップで閉じない
-      builder: (BuildContext dialogContext) {
+      barrierDismissible: false,
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFFFFF6E6),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
@@ -415,11 +423,11 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             IconButton(
               icon: const Icon(Icons.close, color: Color(0xFFFF7B00)),
               onPressed: () {
-                print('Hint dialog closed');
+                // print('Hint dialog closed');
                 Navigator.of(dialogContext).pop();
                 setState(() {
                   _hintData = null;
-                  print('Hint data cleared');
+                  // print('Hint data cleared');
                 });
               },
             ),
@@ -430,29 +438,29 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   HintData? _findHintRecipe() {
-    print('Finding hint recipe...');
+    // print('Finding hint recipe...');
     final availableIds = _availableItems!.map((item) => item.id).toSet();
-    print('Available IDs: $availableIds');
+    // print('Available IDs: $availableIds');
     final possibleRecipes = _recipes.where((recipe) {
       final recipeIds = recipe.ingredients
           .map((name) => _nameToIdMap[name])
           .where((id) => id != null)
           .toSet();
-      print('Recipe: ${recipe.name}, Ingredients: ${recipe.ingredients}, Required IDs: $recipeIds');
+      // print('Recipe: ${recipe.name}, Ingredients: ${recipe.ingredients}, Required IDs: $recipeIds');
       final hasAllIds = recipeIds.isNotEmpty && recipeIds.every((id) => availableIds.contains(id));
       if (!hasAllIds) {
-        print('Recipe ${recipe.name} not possible: missing IDs ${recipeIds.difference(availableIds)}');
+        // print('Recipe ${recipe.name} not possible: missing IDs ${recipeIds.difference(availableIds)}');
         return false;
       }
       if (availableIds.contains(recipe.id)) {
-        print('Recipe ${recipe.name} already discovered');
+        // print('Recipe ${recipe.name} already discovered');
         return false;
       }
       return true;
     }).toList();
 
     if (possibleRecipes.isEmpty) {
-      print('No possible recipes found');
+      // print('No possible recipes found');
       return null;
     }
 
@@ -461,7 +469,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final ingredients = selectedRecipe.ingredients;
     final hintIngredients = ingredients.sublist(0, ingredients.length - 1)
       ..add('？？？');
-    print('Hint for ${selectedRecipe.name}: $hintIngredients');
+    // print('Hint for ${selectedRecipe.name}: $hintIngredients');
     return HintData(recipe: selectedRecipe, hintIngredients: hintIngredients);
   }
 
@@ -574,7 +582,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ),
                     itemCount: _filteredItems!.length,
                     itemBuilder: (context, index) {
-                      final ItemData item = _filteredItems![index];
+                      final item = _filteredItems![index];
                       return GestureDetector(
                         onTap: () => _addItemToFooter(item),
                         child: Container(
@@ -621,10 +629,10 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       ..._footerSlots.asMap().entries.map((entry) {
-                        final int index = entry.key;
-                        final ItemData? item = entry.value;
+                        final index = entry.key;
+                        final item = entry.value;
                         return _buildFooterSlot(item, index);
-                      }).toList(),
+                      }),
                       _buildStyledIcon(Icons.auto_awesome, _performAlchemy),
                     ],
                   ),
@@ -645,7 +653,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       borderRadius: BorderRadius.circular(12.0),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 8.0,
                           offset: const Offset(0, 4),
                         ),
@@ -690,7 +698,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: item != null ? Colors.transparent : emptySlotColor.withOpacity(0.5),
+          color: item != null ? Colors.transparent : emptySlotColor.withValues(alpha: 0.5),
           shape: BoxShape.circle,
           border: item != null ? Border.all(color: Colors.grey.shade300) : null,
         ),
@@ -722,7 +730,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _addItemToFooter(ItemData item) {
     setState(() {
-      for (int i = 0; i < _footerSlots.length; i++) {
+      for (var i = 0; i < _footerSlots.length; i++) {
         if (_footerSlots[i] == null) {
           _footerSlots[i] = item;
           break;
@@ -739,7 +747,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   void _clearAllFooterSlots() {
     setState(() {
-      for (int i = 0; i < _footerSlots.length; i++) {
+      for (var i = 0; i < _footerSlots.length; i++) {
         _footerSlots[i] = null;
       }
     });
@@ -753,19 +761,18 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return;
     }
 
-    final placedItems = _footerSlots.whereType<ItemData>().toList();
+    final placedItems = _footerSlots.whereType<ItemData>();
     final placedItemIds = placedItems.map((item) => item.id).toList()..sort();
     ItemData? resultItem;
 
-    for (var recipe in _recipes) {
+    for (final recipe in _recipes) {
       final recipeIds = recipe.ingredients
           .map((name) => _nameToIdMap[name])
-          .where((id) => id != null)
-          .cast<String>()
+          .whereType<String>()
           .toList()
         ..sort();
       if (placedItemIds.length == recipeIds.length && placedItemIds.join(',') == recipeIds.join(',')) {
-        print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
+        // print('Match found: ${recipe.name}, Placed: $placedItemIds, Recipe: $recipeIds');
         resultItem = ItemData(
           id: recipe.id,
           name: recipe.name,
@@ -802,7 +809,7 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
       _clearAllFooterSlots();
     } else {
-      print('No match: Placed: $placedItemIds');
+      // print('No match: Placed: $placedItemIds');
       _playEffect('nothing.mp3');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('この組み合わせからは何も生まれませんでした...')),
@@ -818,11 +825,11 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         return _availableItems!.length >= requiredCount && !_availableItems!.any((item) => item.id == recipe.id);
       }
       return false;
-    }).toList();
+    });
 
     if (unlockableItems.isNotEmpty) {
       setState(() {
-        for (var recipe in unlockableItems) {
+        for (final recipe in unlockableItems) {
           _availableItems!.add(ItemData(
             id: recipe.id,
             name: recipe.name,

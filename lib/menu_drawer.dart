@@ -29,12 +29,12 @@ class MenuDrawer extends StatelessWidget {
               leading: const Icon(Icons.lightbulb_outline),
               title: const Text('ヒントを見る'),
               onTap: () {
-                print('ヒントを見る tapped');
+                // print('ヒントを見る tapped');
                 // Drawerを閉じる前にMainScreenStateを取得
                 final mainScreenState = context.findAncestorStateOfType<MainScreenState>();
                 Navigator.pop(context); // Drawerを閉じる
                 if (mainScreenState == null) {
-                  print('MainScreenState not found');
+                  // print('MainScreenState not found');
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('ヒントを表示できませんでした')),
                   );
@@ -56,7 +56,7 @@ class MenuDrawer extends StatelessWidget {
                       actions: [
                         TextButton(
                           onPressed: () {
-                            print('AdMob: Hint dialog cancelled');
+                            // print('AdMob: Hint dialog cancelled');
                             Navigator.of(dialogContext).pop();
                           },
                           child: const Text(
@@ -66,7 +66,7 @@ class MenuDrawer extends StatelessWidget {
                         ),
                         TextButton(
                           onPressed: () {
-                            print('AdMob: Hint dialog accepted');
+                            // print('AdMob: Hint dialog accepted');
                             Navigator.of(dialogContext).pop();
                             mainScreenState.showAdForHint(context);
                           },
@@ -85,7 +85,7 @@ class MenuDrawer extends StatelessWidget {
               leading: const Icon(Icons.info_outline),
               title: const Text('遊び方'),
               onTap: () {
-                print('遊び方 tapped');
+                // print('遊び方 tapped');
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const HowToScreen()),
@@ -96,7 +96,7 @@ class MenuDrawer extends StatelessWidget {
               leading: const Icon(Icons.menu),
               title: const Text('メニュー3'),
               onTap: () {
-                print('メニュー3 tapped');
+                // print('メニュー3 tapped');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('メニュー3が選択されました')),
                 );
