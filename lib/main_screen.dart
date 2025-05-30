@@ -615,10 +615,10 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       return GestureDetector(
                         onTap: () => _addItemToFooter(item),
                         child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
+                          // decoration: BoxDecoration(
+                          //   border: Border.all(color: Colors.grey.shade300),
+                          //   borderRadius: BorderRadius.circular(8.0),
+                          // ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
