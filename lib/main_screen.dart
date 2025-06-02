@@ -872,8 +872,75 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         const SnackBar(content: Text('新しいアイテムをアンロックしました！')),
       );
     }
+
     _saveProgress();
-    if (kDebugMode) print('New item added: ${newItem.name}, Total items: ${_availableItems!.length}');
+    if (kDebugMode) print('新しいアイテムを追加: ${newItem.name}, 合計アイテム数: ${_availableItems!.length}');
+
+    // 全レシピ解放時にclear.pngのポップアップを表示（レシピ完成ポップアップの後）
+    if (_availableItems!.length == _recipes.length) {
+      if (kDebugMode) print('全レシピ解放！clear.pngポップアップを準備');
+      void showClearPopup() {
+        if (kDebugMode) print('clear.pngポップアップを表示');
+        _playEffect('maked.mp3'); // 効果音を再生
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFFFFF6E6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/images/clear.png',
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Image.asset('assets/images/unknown.png'),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '全レシピを解放しました！',
+                    style: TextStyle(
+                      color: Color(0xFFFF7B00),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFFFF7B00)),
+                  onPressed: () {
+                    if (kDebugMode) print('クリアポップアップを閉じました');
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+
+      // レシピ完成ポップアップが表示されている場合は、それが消えるのを待つ
+      if (_createdItem != null && _createdItemTimer != null) {
+        _createdItemTimer!.cancel();
+        _createdItemTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _createdItem = null;
+            });
+            showClearPopup();
+          }
+        });
+      } else {
+        showClearPopup();
+      }
+    }
   }
 
   void _filterItems() {
