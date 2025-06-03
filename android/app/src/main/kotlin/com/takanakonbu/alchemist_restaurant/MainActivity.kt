@@ -1,4 +1,4 @@
-package com.example.alchemist_restaurant
+package com.takanakonbu.alchemist_restaurant
 
 import io.flutter.embedding.android.FlutterActivity
 

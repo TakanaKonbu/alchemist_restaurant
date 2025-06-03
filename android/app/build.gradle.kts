@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.alchemist_restaurant"
+    namespace = "com.takanakonbu.alchemist_restaurant"
     compileSdk = 35
     ndkVersion = "27.0.12077973" // 追加
 
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.alchemist_restaurant"
+        applicationId = "com.takanakonbu.alchemist_restaurant"
         minSdk = 24
         targetSdk = 35
         versionCode = flutter.versionCode.toInt()
